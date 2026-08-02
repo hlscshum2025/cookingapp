@@ -66,7 +66,7 @@
       tid: "0",
       platform: "web",
     });
-    const response = await fetch(`/x/v3/fav/resource/list?${query}`, {
+    const response = await fetch(`https://api.bilibili.com/x/v3/fav/resource/list?${query}`, {
       credentials: "include",
       headers: { Accept: "application/json, text/plain, */*" },
     });
