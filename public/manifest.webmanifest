@@ -1,0 +1,11 @@
+{
+  "name": "CookingApp · 我的做菜知识库",
+  "short_name": "CookingApp",
+  "description": "把做成功的视频菜谱整理成自己的长期知识库。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f1e7",
+  "theme_color": "#2f684f",
+  "lang": "zh-CN",
+  "icons": [{"src":"/favicon.svg","sizes":"any","type":"image/svg+xml"}]
+}
