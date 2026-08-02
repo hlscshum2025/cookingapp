@@ -1,0 +1,1 @@
+"use client";import {useParams} from "next/navigation";import {useStore} from "@/lib/store";import {RecipeForm} from "@/components/RecipeForm";export default function Page(){const{id}=useParams<{id:string}>();const{recipes}=useStore();const r=recipes.find(x=>x.id===id);return r?<RecipeForm initial={r}/>:<div className="empty">菜谱不存在</div>}

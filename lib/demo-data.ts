@@ -1,0 +1,5 @@
+import type { Recipe } from "./types";
+export const demoRecipes: Recipe[] = [
+ {id:"demo-tomato-egg",title:"番茄炒蛋",summary:"酸甜下饭、十几分钟完成的家常菜。",status:"favorite",visibility:"private",servings:2,totalMinutes:15,difficulty:"easy",tags:["正餐","快手","无麸质待确认"],tools:["炒锅"],ingredients:[{name:"番茄",amount:2,unit:"个"},{name:"鸡蛋",amount:3,unit:"个"},{name:"盐",amount:2,unit:"克"}],steps:[{instruction:"番茄切块，鸡蛋加少量盐打散。",durationMinutes:3},{instruction:"热锅下蛋液，凝固后盛出。",durationMinutes:3},{instruction:"炒软番茄，倒回鸡蛋调味。",durationMinutes:5}],logs:[{id:"log-1",cookedAt:"2026-07-28",rating:5,result:"success",notes:"少糖版本更合口味。"}],updatedAt:"2026-07-28"},
+ {id:"demo-chicken",title:"空气炸锅鸡腿",summary:"适合作为高蛋白正餐的个人版本。",status:"successful",visibility:"public",servings:2,totalMinutes:35,difficulty:"easy",tags:["肉食主义","空气炸锅","高蛋白"],tools:["空气炸锅"],ingredients:[{name:"去骨鸡腿",amount:400,unit:"克"},{name:"生抽",amount:15,unit:"毫升"},{name:"蒜",amount:2,unit:"瓣"}],steps:[{instruction:"鸡腿与调料拌匀，腌制。",durationMinutes:20},{instruction:"空气炸锅 190°C 烤制，中途翻面。",durationMinutes:15,temperatureC:190}],logs:[],updatedAt:"2026-07-20"}
+];

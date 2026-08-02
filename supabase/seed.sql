@@ -1,0 +1,2 @@
+insert into tools(name_zh,name_en,name_de) values ('炒锅','wok','Wok'),('烤箱','oven','Backofen'),('空气炸锅','air fryer','Heißluftfritteuse') on conflict do nothing;
+insert into tags(owner_id,group_name,slug,name) values (null,'meal','breakfast','早餐'),(null,'meal','main','正餐'),(null,'method','air-fryer','空气炸锅'),(null,'goal','high-protein','高蛋白'),(null,'diet','gluten-free-review','无麸质待确认') on conflict do nothing;

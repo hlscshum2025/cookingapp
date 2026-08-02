@@ -1,4 +1,38 @@
-# CookingApp
+# 一餐一记 CookingApp
+
+把亲自做过并成功的视频菜谱，整理为可搜索、可修改、可持续记录的个人做菜知识库。
+
+## V1 已实现
+
+- 响应式首页、菜谱库、组合搜索和状态筛选
+- 菜谱新增、编辑、删除，食材、厨具、步骤和标签
+- 来源版/个人版的数据结构，制作日志与厨房逐步模式
+- B站收藏夹 JSON 导入、BV号去重和待整理队列
+- 中英德食材词典与无麸质人工核验提示
+- 标签统计、完整 JSON 数据导出、邮箱魔法链接登录页
+- Supabase PostgreSQL migration、RLS 权限和种子数据
+- 未配置 Supabase 时可直接使用本地演示模式
+
+## 本地启动
+
+需要 Node.js LTS。克隆仓库后运行：
+
+```bash
+npm install
+npm run dev
+```
+
+打开 http://localhost:3000。首次启动无需数据库，会使用浏览器本地数据。
+
+## 连接 Supabase
+
+1. 在 Supabase 新建项目。
+2. 在 SQL Editor 运行 `supabase/migrations/0001_cookingapp_v1.sql`，再运行 `supabase/seed.sql`。
+3. 复制 `.env.example` 为 `.env.local`。
+4. 填写 Project URL 与 Publishable key，绝对不要提交 Secret/service_role key。
+5. 重启 `npm run dev`。
+
+详细产品、字段和开发说明见 [docs/feature_list.md](docs/feature_list.md)、[docs/database_schema.md](docs/database_schema.md) 和 [docs/development_plan.md](docs/development_plan.md)。
 
 把个人验证成功的 B 站做饭收藏，整理成可持续修改、检索和分享的个人做菜知识库。
 
