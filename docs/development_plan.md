@@ -5,7 +5,7 @@
 - Next.js（App Router）+ TypeScript，手机优先响应式 Web/PWA。
 - Tailwind CSS + 可访问性良好的组件库。
 - Supabase PostgreSQL、Auth、Storage 与 Row Level Security。
-- Vercel 预览/生产部署；自定义域名可在首版稳定后绑定。
+- ChatGPT Sites / Cloudflare 托管负责生产部署；自定义域名可在首版稳定后绑定。
 - Vitest 负责单元/集成测试，Playwright 负责关键端到端流程。
 
 ## 2. 里程碑
