@@ -10,7 +10,7 @@
 | VS Code | 在电脑上查看和编辑代码 | 只操作本地文件 |
 | Node.js / npm | 安装网页依赖并在本机启动开发服务器 | 不负责数据库 |
 | Supabase | 保存登录用户、菜谱、日志、食材、导入记录和图片 | 是正式数据存储位置 |
-| Vercel（计划使用） | 让网页全天在线，不依赖个人电脑 | 保存部署配置，不保存主要业务数据 |
+| ChatGPT Sites / Cloudflare 托管 | 让网页全天在线，不依赖个人电脑 | 保存部署版本和运行配置，不保存主要业务数据 |
 | 域名注册商 | 提供自己的网址，例如 `cooking.example.com` | 不保存网页和菜谱 |
 
 数据流如下：
@@ -36,7 +36,7 @@ V1 已完成以下能力：
 
 - JSON 只包含视频元数据，不能自动得到可靠的全部用量、温度和步骤；
 - 导入后需要从 5–10 条样例开始人工整理和核验；
-- 代码已经在 GitHub，但必须部署到 Vercel 等托管平台后，才能成为无需运行 `npm` 的公网网站；
+- 代码已经在 GitHub，并已建立 ChatGPT Sites 项目，但目前还没有发布版本或公网网址；完成 Sites checkpoint deployment 后才会成为无需运行 `npm` 的公网网站；
 - 微信登录、多人投稿、周菜单、库存和自动营养分析属于后续版本。
 
 ## 3. 第一次在电脑上运行
@@ -223,23 +223,23 @@ limit 20;
 
 ## 8. 上线后在德国如何使用
 
-公网部署完成后，GitHub 更新会触发托管平台重新构建。你在德国、日本或其他地区只需要：
+公网部署完成后，新版本通过 ChatGPT Sites 重新发布。你在德国、日本或其他地区只需要：
 
 1. 用手机或电脑打开正式网址；
 2. 用管理者邮箱登录；
 3. 直接查看和编辑 Supabase 中的同一份数据。
 
-不需要在自己的电脑上运行 Git Bash、VS Code 或 `npm run dev`。这些只用于开发和本地测试。网页能否在线取决于 Vercel 与 Supabase，而不是你的电脑是否开机。
+不需要在自己的电脑上运行 Git Bash、VS Code 或 `npm run dev`。这些只用于开发和本地测试。网页能否在线取决于 Sites 托管与 Supabase，而不是你的电脑是否开机。
 
 ## 9. 部署与域名操作顺序
 
 建议顺序：
 
-1. 先在 Vercel 导入 GitHub 仓库并获得临时 `*.vercel.app` 地址；
-2. 在 Vercel 配置两项 Supabase 环境变量并重新部署；
-3. 在 Supabase 的 `Authentication → URL Configuration` 中加入 Vercel 地址；
+1. 先把 GitHub 中的当前版本保存并发布为 ChatGPT Sites checkpoint deployment，获得生产网址；
+2. 在 Sites 的 production environment variables 中配置两项 Supabase 环境变量，再发布新版本；
+3. 在 Supabase 的 `Authentication → URL Configuration` 中加入 Sites 生产网址；
 4. 完成登录、导入和云端保存验收；
-5. 再购买或绑定自己的域名；
+5. 再购买或绑定自己的域名；Sites 会给出必须添加的 CNAME/A 记录和验证记录；
 6. 把正式域名设为 Supabase Site URL，并保留本地地址作为 Redirect URL。
 
 可以提前购买域名以避免喜欢的名称被注册，但不要在部署前反复修改 DNS。
@@ -283,4 +283,3 @@ ls
 - 不要直接删除整张表或关闭 RLS；
 - 不要在没有备份时批量删除菜谱或 Storage 图片；
 - 不要把包含私人日志的完整数据备份放进公开仓库。
-
