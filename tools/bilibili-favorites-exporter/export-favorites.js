@@ -80,22 +80,97 @@
     return body.data || {};
   }
 
-  function download(filename, content, mimeType) {
-    const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.style.display = "none";
-    // B 站是单页应用，必须阻止它的全局链接处理器截获这个下载点击，
-    // 否则当前收藏夹网址可能被错误拼接并跳走。
-    link.addEventListener("click", (event) => event.stopImmediatePropagation());
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  function showSavePanel(filename, jsonText, count) {
+    document.getElementById("cookingapp-export-panel")?.remove();
+
+    const panel = document.createElement("div");
+    panel.id = "cookingapp-export-panel";
+    Object.assign(panel.style, {
+      position: "fixed",
+      top: "20px",
+      right: "20px",
+      zIndex: "2147483647",
+      width: "320px",
+      padding: "18px",
+      borderRadius: "12px",
+      background: "#ffffff",
+      color: "#18191c",
+      boxShadow: "0 8px 32px rgba(0,0,0,.28)",
+      font: "14px/1.6 system-ui, sans-serif",
+    });
+
+    const title = document.createElement("strong");
+    title.textContent = `CookingApp：已提取 ${count} 条`;
+    title.style.display = "block";
+    title.style.marginBottom = "8px";
+
+    const tip = document.createElement("div");
+    tip.textContent = "请点击下面的按钮，在 Edge 弹出的窗口中保存 JSON。";
+    tip.style.marginBottom = "12px";
+
+    const saveButton = document.createElement("button");
+    saveButton.type = "button";
+    saveButton.textContent = "保存 JSON 文件";
+    Object.assign(saveButton.style, {
+      width: "100%",
+      padding: "10px 14px",
+      border: "0",
+      borderRadius: "8px",
+      background: "#00aeec",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: "700",
+    });
+
+    const status = document.createElement("div");
+    status.style.marginTop = "10px";
+    status.style.fontSize = "12px";
+
+    saveButton.addEventListener("click", async () => {
+      try {
+        if (!window.showSaveFilePicker) {
+          throw new Error("当前浏览器不支持直接另存为，请使用最新版 Edge 或 Chrome。");
+        }
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: "JSON 文件",
+            accept: { "application/json": [".json"] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(jsonText);
+        await writable.close();
+        status.textContent = `保存成功：${filename}`;
+        status.style.color = "#00843d";
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          status.textContent = "已取消保存；需要时可以再次点击按钮。";
+          status.style.color = "#61666d";
+          return;
+        }
+        status.textContent = error.message;
+        status.style.color = "#d00";
+        console.error("[CookingApp] 保存失败：", error);
+      }
+    });
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.textContent = "关闭";
+    Object.assign(closeButton.style, {
+      marginTop: "8px",
+      width: "100%",
+      padding: "7px",
+      border: "1px solid #c9ccd0",
+      borderRadius: "8px",
+      background: "#fff",
+      cursor: "pointer",
+    });
+    closeButton.addEventListener("click", () => panel.remove());
+
+    panel.append(title, tip, saveButton, closeButton, status);
+    document.body.appendChild(panel);
   }
 
   function toCsv(items) {
@@ -149,11 +224,13 @@
     };
     const safeTitle = favoriteTitle.replace(/[\\/:*?"<>|\s]+/g, "-").replace(/^-|-$/g, "") || "favorites";
     const date = exportedAt.slice(0, 10);
-    // 只触发一次自动下载，避免 Edge 拦截“多个自动下载”。JSON 是
-    // CookingApp 后续导入所需的完整原始文件；CSV 可在之后从 JSON 生成。
-    download(`${safeTitle}-${date}.json`, JSON.stringify(payload, null, 2), "application/json");
-    console.log(`[CookingApp] 导出完成：${videos.length} 条。已下载 JSON 文件。`);
+    const filename = `${safeTitle}-${date}.json`;
+    const jsonText = JSON.stringify(payload, null, 2);
+    // 不再创建或点击 blob: 链接；B 站会把它错误地当成站内导航。
+    // 改为显示保存按钮，由用户点击后调用浏览器原生“另存为”窗口。
     window.__COOKINGAPP_BILIBILI_EXPORT__ = payload;
+    showSavePanel(filename, jsonText, videos.length);
+    console.log(`[CookingApp] 导出完成：${videos.length} 条。请点击页面右上角的“保存 JSON 文件”。`);
   } catch (error) {
     console.error("[CookingApp] 导出失败：", error);
     alert(`导出失败：${error.message}\n\n请确认：\n1. 已登录 B 站；\n2. 当前打开的是目标收藏夹；\n3. 页面可以正常显示收藏内容。`);
