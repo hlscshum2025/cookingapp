@@ -42,6 +42,7 @@ CookingApp 不只是收藏夹搬运工具，而是四个能力的组合：
 - [数据模型](docs/data-model.md)
 - [技术与软件方案](docs/tech-stack.md)
 - [B 站收藏夹导入方案](docs/bilibili-import.md)
+- [B 站收藏夹本地导出工具](tools/bilibili-favorites-exporter/README.md)
 - [实施路线图](docs/roadmap.md)
 
 ## 第一版（MVP）
@@ -62,7 +63,8 @@ CookingApp 不只是收藏夹搬运工具，而是四个能力的组合：
 - [x] 明确产品定位
 - [x] 确定 GitHub + Supabase 分层存储
 - [x] 建立产品、数据、技术和路线图文档
-- [ ] 获取并核验“吃饭”收藏夹的 197 条视频
+- [x] 建立不上传 Cookie 的 B 站收藏夹本地导出工具
+- [ ] 运行工具并核验“吃饭”收藏夹的 197 条视频
 - [ ] 建立数据库
 - [ ] 制作可点击原型
 - [ ] 开发 MVP
