@@ -19,7 +19,7 @@ const context = {
   document: {
     body: { appendChild() {} },
     createElement() {
-      return { style: {}, remove() {}, click() { downloads.push(this.download); } };
+      return { style: {}, addEventListener() {}, remove() {}, click() { downloads.push(this.download); } };
     },
   },
   fetch: async (url) => {
@@ -54,6 +54,6 @@ assert.equal(result.favorite.id, "3081759942");
 assert.equal(result.favorite.title, "吃饭");
 assert.equal(result.video_count, 2);
 assert.equal(result.videos[0].video_url, "https://www.bilibili.com/video/BV1TEST00001");
-assert.deepEqual(downloads.sort(), ["吃饭-2026-08-02.csv", "吃饭-2026-08-02.json"]);
+assert.deepEqual(downloads, ["吃饭-2026-08-02.json"]);
 assert.ok(logs.some((line) => line.includes("导出完成：2 条")));
 console.log("export-favorites test passed");
