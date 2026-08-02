@@ -86,7 +86,12 @@
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;
+    link.target = "_blank";
+    link.rel = "noopener";
     link.style.display = "none";
+    // B 站是单页应用，必须阻止它的全局链接处理器截获这个下载点击，
+    // 否则当前收藏夹网址可能被错误拼接并跳走。
+    link.addEventListener("click", (event) => event.stopImmediatePropagation());
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -144,9 +149,10 @@
     };
     const safeTitle = favoriteTitle.replace(/[\\/:*?"<>|\s]+/g, "-").replace(/^-|-$/g, "") || "favorites";
     const date = exportedAt.slice(0, 10);
+    // 只触发一次自动下载，避免 Edge 拦截“多个自动下载”。JSON 是
+    // CookingApp 后续导入所需的完整原始文件；CSV 可在之后从 JSON 生成。
     download(`${safeTitle}-${date}.json`, JSON.stringify(payload, null, 2), "application/json");
-    download(`${safeTitle}-${date}.csv`, toCsv(videos), "text/csv");
-    console.log(`[CookingApp] 导出完成：${videos.length} 条。已下载 JSON 和 CSV 两个文件。`);
+    console.log(`[CookingApp] 导出完成：${videos.length} 条。已下载 JSON 文件。`);
     window.__COOKINGAPP_BILIBILI_EXPORT__ = payload;
   } catch (error) {
     console.error("[CookingApp] 导出失败：", error);
