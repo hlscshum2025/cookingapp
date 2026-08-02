@@ -34,9 +34,10 @@ V1 是“可以开始验收和录入”的第一版，不是最终完整版。�
 
 ## 阶段 2：公网部署与域名
 
-- [ ] 在 Vercel 连接 `hlscshum2025/cookingapp`
-- [ ] 配置 Supabase 两项 Environment Variables
-- [ ] 获得并验收 `*.vercel.app` 网址
+- [x] 建立与仓库对应的 ChatGPT Sites 项目
+- [ ] 保存并发布第一个 Sites checkpoint deployment
+- [ ] 配置 Supabase 两项 production environment variables
+- [ ] 获得并验收 Sites 生产网址
 - [ ] 更新 Supabase Site URL 与 Redirect URLs
 - [ ] 手机端验证登录、编辑、导入、厨房模式和公开分享
 - [ ] 购买或确定个人主域名
@@ -117,4 +118,3 @@ V1 是“可以开始验收和录入”的第一版，不是最终完整版。�
 - 正式数据不进入公开 GitHub，密钥永不提交
 - 先让响应式 Web 稳定，再决定是否开发小程序
 - 每个外部服务都保留替换接口，避免被单一平台锁定
-
