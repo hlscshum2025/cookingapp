@@ -87,3 +87,10 @@ docs/                   产品、数据库与开发规划（原仓库保留）
 - V1 暂不含完整周菜单、库存、购物清单、微信登录或多人协作；数据库已为后续扩展保留稳定主键。
 
 详细规格仍见 `docs/feature_list.md`、`docs/database_schema.md` 和 `docs/development_plan.md`。
+
+## 管理与学习文档
+
+- [管理者操作指南](docs/ADMIN_GUIDE.md)：本地启动、Supabase 检查、JSON 导入、备份、部署、域名和排错。
+- [代码与 npm 说明](docs/CODE_GUIDE.md)：解释 Git、VS Code、Node.js、npm、目录结构和主要代码职责。
+- [最新后续路线图](docs/roadmap.md)：按云端验收、部署、首批内容和 V2 分阶段推进。
+
