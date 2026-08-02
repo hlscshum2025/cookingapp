@@ -9,9 +9,9 @@
 3. 按 `F12`，切换到 **Console / 控制台**。
 4. 如果浏览器阻止粘贴，按照控制台提示手动输入 `allow pasting`，回车。
 5. 打开 [`export-favorites.js`](export-favorites.js)，复制全部内容，粘贴到控制台并回车。
-6. 等待控制台显示“导出完成”。浏览器会下载同名的 JSON 和 CSV 文件。
+6. 等待控制台显示“导出完成”。浏览器会下载一个 JSON 文件。
 
-CSV 可直接用 Excel 打开；JSON 保留了完整层级信息，后续导入 CookingApp 时优先使用 JSON。
+JSON 保留完整层级信息，可直接交给 CookingApp 继续处理。为避免 Edge 拦截多个自动下载，工具不再同时下载 CSV；需要 Excel 表格时可由 CookingApp 从 JSON 转换。
 
 ## 导出的内容
 
@@ -38,7 +38,7 @@ CSV 可直接用 Excel 打开；JSON 保留了完整层级信息，后续导入 
 
 ### 如何交给 CookingApp 继续处理
 
-保留 JSON 原文件，把它作为收藏夹导入源。CSV 用于人工核对和在 Excel 中添加“是否做过”“菜谱状态”等辅助列，不要用修改后的 CSV 覆盖原始 JSON。
+保留 JSON 原文件，把它作为收藏夹导入源。需要人工核对时，可以在后续步骤中转换成 Excel，并添加“是否做过”“菜谱状态”等辅助列。
 
 ## 隐私与边界
 
