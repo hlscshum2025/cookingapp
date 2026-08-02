@@ -30,7 +30,7 @@ Git Bash 只是一个可以输入命令的终端。npm 并不要求必须在 Git
 | `npm test` | 运行项目测试 | 修改核心功能后 |
 | `npm run lint` | 检查常见代码质量问题 | 提交代码前 |
 
-`npm install` 不需要每次打开网页都运行；依赖没有变化时可以跳过。`npm run dev` 只负责本地网页，所以关闭终端或按 `Ctrl + C` 后，本地地址就打不开。部署到 Vercel 后，服务器替你运行正式版本，普通使用不再需要 npm。
+`npm install` 不需要每次打开网页都运行；依赖没有变化时可以跳过。`npm run dev` 只负责本地网页，所以关闭终端或按 `Ctrl + C` 后，本地地址就打不开。发布到 ChatGPT Sites 后，托管服务器替你运行正式版本，普通使用不再需要 npm。
 
 ## 3. 项目目录的作用
 
@@ -150,7 +150,7 @@ Migration 是数据库的“可重复施工图”，负责：
 环境变量让同一份代码连接不同的数据库：
 
 - 本机开发读取 `.env.local`；
-- Vercel 在线部署读取项目后台的 Environment Variables；
+- ChatGPT Sites 在线版本读取 production environment variables；
 - GitHub 只保存 `.env.example`，不保存真实值。
 
 Publishable key 本身是给浏览器使用的，但仍不应和其他秘密混在文档中。`service_role` 和 secret key 能绕过 RLS，绝对不能出现在前端代码、聊天截图或公开仓库。
@@ -159,10 +159,10 @@ Publishable key 本身是给浏览器使用的，但仍不应和其他秘密混�
 
 | 项目 | 本地开发 | 线上网站 |
 |---|---|---|
-| 地址 | `localhost` | `*.vercel.app` 或自己的域名 |
-| 谁提供服务器 | 你的电脑和 `npm run dev` | Vercel |
+| 地址 | `localhost` | Sites 生产网址或自己的域名 |
+| 谁提供服务器 | 你的电脑和 `npm run dev` | ChatGPT Sites / Cloudflare 托管 |
 | 电脑关机后 | 本地网页停止 | 不受影响 |
-| 配置位置 | `.env.local` | Vercel Environment Variables |
+| 配置位置 | `.env.local` | Sites production environment variables |
 | 用途 | 修改、调试、试验 | 日常手机和电脑使用 |
 
 ## 11. 修改代码后的安全检查
@@ -174,5 +174,4 @@ npm run build
 git status
 ```
 
-确认检查通过且没有把 `.env.local`、私人 JSON 或数据备份加入 Git，再提交和推送。GitHub 连接到 Vercel 后，推送到主分支会自动触发新部署。
-
+确认检查通过且没有把 `.env.local`、私人 JSON 或数据备份加入 Git，再提交和推送。推送代码不会自动等于发布；需要把这个准确的 GitHub 版本保存并发布为新的 Sites checkpoint deployment。
