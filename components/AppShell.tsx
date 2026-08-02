@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCooking } from "./CookingProvider";
 
 const nav = [
-  ["/","⌂","总览"],["/recipes","▦","菜谱库"],["/imports","⇩","导入中心"],["/ingredients","文","食材词典"],["/logs","✎","做菜日志"],["/settings","⚙","设置"]
+  ["/","⌂","总览"],["/recipes","▦","菜谱库"],["/imports","⇩","导入中心"],["/ingredients","文","食材词典"],["/logs","✎","做菜日志"],["/tags","#","标签总览"],["/settings","⚙","设置"]
 ];
 const mobile=nav.slice(0,5);
 

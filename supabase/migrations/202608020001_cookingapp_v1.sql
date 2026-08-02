@@ -181,6 +181,24 @@ create policy "tags owner" on public.tags for all using (auth.uid()=owner_id) wi
 drop policy if exists "recipe tags owner" on public.recipe_tags;
 create policy "recipe tags owner" on public.recipe_tags for all using (auth.uid()=owner_id) with check (auth.uid()=owner_id);
 
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values('recipe-images','recipe-images',false,10485760,array['image/jpeg','image/png','image/webp','image/gif'])
+on conflict(id) do update set public=false,file_size_limit=10485760,allowed_mime_types=excluded.allowed_mime_types;
+
+drop policy if exists "recipe images owner read" on storage.objects;
+create policy "recipe images owner read" on storage.objects for select to authenticated
+using(bucket_id='recipe-images' and (storage.foldername(name))[1]=auth.uid()::text);
+drop policy if exists "recipe images owner insert" on storage.objects;
+create policy "recipe images owner insert" on storage.objects for insert to authenticated
+with check(bucket_id='recipe-images' and (storage.foldername(name))[1]=auth.uid()::text);
+drop policy if exists "recipe images owner update" on storage.objects;
+create policy "recipe images owner update" on storage.objects for update to authenticated
+using(bucket_id='recipe-images' and (storage.foldername(name))[1]=auth.uid()::text)
+with check(bucket_id='recipe-images' and (storage.foldername(name))[1]=auth.uid()::text);
+drop policy if exists "recipe images owner delete" on storage.objects;
+create policy "recipe images owner delete" on storage.objects for delete to authenticated
+using(bucket_id='recipe-images' and (storage.foldername(name))[1]=auth.uid()::text);
+
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path=public as $$
 begin insert into public.profiles(id,display_name) values(new.id,coalesce(new.raw_user_meta_data->>'name',split_part(new.email,'@',1))) on conflict(id) do nothing; return new; end $$;

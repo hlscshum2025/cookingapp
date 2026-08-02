@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCooking } from "@/components/CookingProvider";
 import { RecipeCard } from "@/components/RecipeCard";
 
 export default function RecipesPage() {
-  const {recipes}=useCooking(); const [query,setQuery]=useState(""); const [status,setStatus]=useState("all");
+  const {recipes}=useCooking(); const params=useSearchParams();const [query,setQuery]=useState(()=>params.get("q")||""); const [status,setStatus]=useState(()=>params.get("status")||"all");
   const filtered=useMemo(()=>recipes.filter(recipe=>{
     const text=[recipe.title,recipe.summary,...recipe.tags,...recipe.ingredients.map(i=>i.name)].join(" ").toLowerCase();
     return text.includes(query.toLowerCase()) && (status==="all"||recipe.status===status);

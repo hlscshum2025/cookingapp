@@ -20,6 +20,8 @@ export type CookingLog = {
   changes: string;
   notes: string;
   nextTime: string;
+  photoPath?: string;
+  photoUrl?: string;
 };
 
 export type Recipe = {
