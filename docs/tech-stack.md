@@ -11,7 +11,7 @@
 | 数据库 | Supabase PostgreSQL | 适合结构化菜谱、关系查询和后续扩展 |
 | 登录 | Supabase Auth | 个人编辑权限与公开只读访问分开 |
 | 图片 | Supabase Storage | 不把图片塞入 GitHub |
-| 部署 | Vercel | 适合 Next.js，自动生成 HTTPS 链接 |
+| 部署 | ChatGPT Sites / Cloudflare 托管 | 与仓库现有 Vinext 和 `.openai/hosting.json` 结构一致，可发布 HTTPS 生产网址和绑定自定义域名 |
 | 二维码 | 前端二维码库 | 把公开 URL 直接转为二维码 |
 | 本地开发 | VS Code、Git、Node.js | 编辑 Markdown、代码和版本管理 |
 | API 调试 | Bruno 或 Postman（可选） | 调试导入与菜谱接口 |
