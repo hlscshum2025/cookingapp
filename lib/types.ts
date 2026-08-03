@@ -32,12 +32,26 @@ export type Recipe = {
   color: string;
   servings: number;
   totalMinutes: number;
+  activeMinutes?: number;
+  unattendedMinutes?: number;
+  advancePrepMinutes?: number;
+  advancePrepNote?: string;
   difficulty: "简单" | "中等" | "进阶";
   status: RecipeStatus;
   visibility: "private" | "public";
   tags: string[];
   tools: string[];
-  source?: { platform: string; title: string; url: string; bvid?: string; uploader?: string };
+  source?: {
+    platform: string;
+    title: string;
+    url: string;
+    bvid?: string;
+    uploader?: string;
+    coverUrl?: string;
+    durationSeconds?: number;
+    publishedAt?: string;
+    favoritedAt?: string;
+  };
   ingredients: IngredientLine[];
   steps: RecipeStep[];
   versionNote: string;
@@ -61,10 +75,68 @@ export type FavoriteVideo = {
   id?: string | number;
   title?: string;
   url?: string;
+  video_url?: string;
   uploader?: string;
   author?: string;
   description?: string;
+  intro?: string;
   cover?: string;
+  cover_url?: string;
   duration?: number | string;
+  duration_seconds?: number;
+  published_at?: string;
+  favorited_at?: string;
+  favorite_id?: string;
+  uploader_mid?: number;
+  index?: number;
   invalid?: boolean;
+};
+
+export type NormalizedFavoriteVideo = {
+  bvid: string;
+  title: string;
+  url: string;
+  uploader: string;
+  description: string;
+  coverUrl: string;
+  durationSeconds?: number;
+  publishedAt?: string;
+  favoritedAt?: string;
+  favoriteId?: string;
+  invalid: boolean;
+  raw: FavoriteVideo;
+};
+
+export type ImportItemStatus = "processed" | "duplicate" | "failed" | "skipped";
+
+export type ImportItemAudit = {
+  externalId: string;
+  title: string;
+  status: ImportItemStatus;
+  errorCode?: string;
+};
+
+export type ImportResult = {
+  jobId: string;
+  mode: "local" | "cloud";
+  total: number;
+  added: number;
+  duplicates: number;
+  failed: number;
+  skipped: number;
+  items: ImportItemAudit[];
+};
+
+export type ImportJobSummary = {
+  id: string;
+  fileName?: string;
+  sourceCollectionId?: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  total: number;
+  added: number;
+  duplicates: number;
+  failed: number;
+  skipped: number;
+  createdAt: string;
+  finishedAt?: string;
 };
