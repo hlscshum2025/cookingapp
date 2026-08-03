@@ -17,6 +17,7 @@
 - 公开只读分享页、二维码和复制链接；不展示私人日志和导入原始数据
 - Supabase 邮箱魔法链接登录、RLS、自动版本快照
 - 完整 JSON 备份导出和 PWA manifest
+- 完整备份覆盖 10 张业务表；Storage 图片保持独立，避免 JSON 膨胀
 - 无数据库时可直接运行的演示数据模式
 
 ## 申请并初始化 Supabase
@@ -27,11 +28,12 @@
 4. Region 选主要使用地附近：日本使用可选 Tokyo，德国使用可选 Frankfurt。
 5. 等项目创建完成，进入 `SQL Editor`，新建查询。
 6. 复制并运行 [`supabase/migrations/202608020001_cookingapp_v1.sql`](supabase/migrations/202608020001_cookingapp_v1.sql) 的全部内容。
-7. 进入 `Project Settings → Data API / API Keys`，复制：
+7. 再复制并运行 [`supabase/migrations/202608030001_import_audit.sql`](supabase/migrations/202608030001_import_audit.sql)，补齐来源视频、逐条审计和原子批量导入函数。
+8. 进入 `Project Settings → Data API / API Keys`，复制：
    - Project URL
    - Publishable key（旧项目可能显示 `anon public key`）
-8. 在本地复制 `.env.example` 为 `.env.local`，填入这两项。
-9. 进入 `Authentication → URL Configuration`，开发阶段把 Site URL 填为 `http://localhost:3000`；上线时改为正式域名，并把正式回调地址加入 Redirect URLs。
+9. 在本地复制 `.env.example` 为 `.env.local`，填入这两项。
+10. 进入 `Authentication → URL Configuration`，开发阶段把 Site URL 填为 `http://localhost:3000`；上线时改为正式域名，并把正式回调地址加入 Redirect URLs。
 
 前端绝对不要使用 `service_role`、secret key 或数据库密码，也不要把 `.env.local` 提交到 GitHub。Publishable/anon key 可以出现在浏览器端，真正的数据隔离由 migration 中的 Row Level Security 完成。
 
@@ -93,4 +95,5 @@ docs/                   产品、数据库与开发规划（原仓库保留）
 - [管理者操作指南](docs/ADMIN_GUIDE.md)：本地启动、Supabase 检查、JSON 导入、备份、部署、域名和排错。
 - [代码与 npm 说明](docs/CODE_GUIDE.md)：解释 Git、VS Code、Node.js、npm、目录结构和主要代码职责。
 - [最新后续路线图](docs/roadmap.md)：按云端验收、部署、首批内容和 V2 分阶段推进。
-
+- [前 10 个视频试导入审计](docs/first-10-import-audit.md)：真实 JSON 抽样结果、字段缺口与需人工核验项。
+- [成本、准备时间与多人厨房调度设计](docs/cost-time-scheduling-design.md)：V2 成本/时间模型与 V3 调度算法。
