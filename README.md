@@ -37,6 +37,19 @@
 
 前端绝对不要使用 `service_role`、secret key 或数据库密码，也不要把 `.env.local` 提交到 GitHub。Publishable/anon key 可以出现在浏览器端，真正的数据隔离由 migration 中的 Row Level Security 完成。
 
+### 四份 SQL 的统一名称
+
+在 Supabase `SQL Editor` 中保存查询时，建议按下表命名。前两份负责安装，后两份只读检查：
+
+| 顺序 | Supabase 中的保存名称 | 仓库文件 | 用途 | 可否重复运行 |
+|---:|---|---|---|---|
+| 01 | `01_CookingApp数据库初始化` | [`202608020001_cookingapp_v1.sql`](supabase/migrations/202608020001_cookingapp_v1.sql) | 创建业务表、RLS、Storage 策略和基础触发器 | 可以 |
+| 02 | `02_B站导入审计升级` | [`202608030001_import_audit.sql`](supabase/migrations/202608030001_import_audit.sql) | 补充导入字段并安装批量导入函数 | 可以 |
+| 03 | `03_检查数据库安装是否完整` | [`03_verify_installation.sql`](supabase/checks/03_verify_installation.sql) | 检查四张关键表和导入函数是否存在 | 只读，可随时运行 |
+| 04 | `04_检查云端写入结果` | [`04_verify_cloud_data.sql`](supabase/checks/04_verify_cloud_data.sql) | 查看四张关键表记录数和最近导入任务 | 只读，可随时运行 |
+
+如果 02 曾经报 `syntax error at or near "v_added"`，不要删表。拉取当前修正版后重新运行 02 全文即可；它已经补上缺失的分号，并按可重复执行方式编写。
+
 ## Windows 本地运行
 
 先安装 Node.js 22 LTS、Git 和 VS Code，然后：
@@ -53,11 +66,47 @@ npm run dev
 
 ## 第一次登录后的使用顺序
 
-1. 打开 `/login`，输入邮箱并点击邮件中的登录链接。
-2. 在“导入中心”上传收藏夹工具导出的 JSON。
-3. 导入项先成为“待整理”菜谱，不会凭空生成克数和火候。
-4. 从 5–10 个差异较大的视频开始，人工整理食材与步骤。
-5. 实际做成功后更新为“已成功/常做”，并新增一次做菜日志。
+网页中的“登录”是 **CookingApp 应用用户登录**，由 Supabase Auth 负责；它不是 GitHub 登录、域名登录，也不是 Supabase Dashboard 账号登录。第一次不需要提前注册：输入一个能接收邮件的邮箱，点击 Supabase 发来的魔法链接，就会自动创建应用用户。
+
+本地网页与 Supabase 要同时满足三项条件才能写入云端：
+
+| 条件 | 怎样确认 |
+|---|---|
+| `.env.local` 已填 Project URL 和 Publishable key | 修改后重启 `npm run dev`；登录页不再提示缺少配置 |
+| 数据库已运行 01 和 02 | 运行 03，五个结果都应为 `true` |
+| 当前浏览器已完成邮箱登录 | 顶部显示“Supabase 已连接”，设置页显示登录邮箱 |
+
+然后按下面顺序验证：
+
+1. 打开 `/login`，输入管理者邮箱。
+2. 在同一台电脑、同一浏览器中点击邮件里的魔法登录链接。
+3. 到 Supabase `Authentication → Users`，确认出现该邮箱。
+4. 打开“导入中心”，上传收藏夹工具导出的 JSON，选择“先试导入前 10 条”。
+5. 页面必须显示“云端导入完成”；如果显示“本机演示导入完成”，四张表不会变化。
+6. 运行 04：首次应有约 10 条 `source_videos`、10 条 `import_items`、10 条 `recipes` 和 1 条 `import_jobs`。
+7. 再导入相同前 10 条，预期新增 0、重复 10。
+8. 导入项只会成为私密“待整理”菜谱，不会凭空生成克数和火候。
+9. 从 5–10 个差异较大的视频开始，人工整理食材与步骤。
+10. 实际做成功后更新为“已成功/常做”，并新增一次做菜日志。
+
+四张表为空通常表示还没有发生“已登录的云端写入”，不代表表本身断开。能在 Supabase Table Editor 中看到这些表，说明数据库结构已经存在；网页显示“未登录”时，程序会明确进入本机演示模式。
+
+## 多灶台、多厨房调度：学习路线
+
+这个功能属于运筹学中的约束调度。当前不需要训练 AI；先用 Google OR-Tools 的 CP-SAT 把步骤、设备、人员和上桌时间建模，日后再用真实做饭日志修正每一步的预计时长。
+
+| 学习阶段 | 需要理解的内容 | 对应做饭场景 | 学习链接 |
+|---:|---|---|---|
+| 1 | Job Shop Scheduling | 多道菜各有步骤先后，同一灶位同一时间只能做一步 | [OR-Tools Job Shop](https://developers.google.com/optimization/scheduling/job_shop) |
+| 2 | CP-SAT 与区间变量 | 为每一步建立开始、结束、持续时间，求一份可执行计划 | [CP-SAT Solver](https://developers.google.com/optimization/cp/cp_solver) |
+| 3 | `NoOverlap` 与 `Cumulative` | 一口锅不可重叠使用；两个大火位表示容量为 2 | [CP-SAT Python API](https://or-tools.github.io/docs/pdoc/ortools/sat/python/cp_model.html) |
+| 4 | RCPSP | 步骤有前置关系，同时受灶台、锅、烤箱、案板数量限制 | [OR-Tools RCPSP 示例](https://github.com/google/or-tools/blob/stable/examples/python/rcpsp_sat.py) |
+| 5 | Employee Scheduling | 把切菜、翻炒、看火分给不同的人，并限制每个人不能同时做两件事 | [OR-Tools Employee Scheduling](https://developers.google.com/optimization/scheduling/employee_scheduling) |
+| 6 | Multi-mode / Multi-skill RCPSP | 同一步可选大火、小火或不同厨房；不同人拥有不同技能 | [多技能、多模式 RCPSP 论文](https://www.nature.com/articles/s41598-023-45970-y) |
+
+在 CookingApp 中的映射：一道菜是一个作业，切配/腌制/翻炒是任务，“先腌后煎”是前置约束，两个大火位是容量为 2 的资源，锅具和厨师也是资源，多厨房是可选执行地点。优化目标按优先级处理：先满足食品安全、步骤先后和资源容量等硬约束，再尽量让所有菜准时且接近同时上桌，减少成品放凉时间和人员空等。
+
+实现顺序建议：先做单厨房固定计划，再加入多人分工和多个厨房，最后加入“某一步延误后，只重排尚未开始任务”的滚动重排。
 
 ## 数据存放
 
