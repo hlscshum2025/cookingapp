@@ -141,6 +141,14 @@ th { background:#f3eee3; color:#657066; text-transform:uppercase; letter-spacing
 .progress span { display:block; height:100%; background:var(--leaf); border-radius:inherit; }
 .mobile-nav { display:none; }
 .toast { position:fixed; right:24px; bottom:24px; z-index:50; background:var(--ink); color:white; padding:12px 16px; border-radius:13px; box-shadow:var(--shadow); font-size:13px; }
+.manual-entry-layout { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:20px; align-items:start; }
+.manual-entry-main { display:grid; gap:18px; }
+.manual-entry-side { min-width:0; }
+.manual-array-card { padding:12px; margin-bottom:10px; border:1px solid var(--line); border-radius:15px; background:#faf7f0; }
+.manual-array-card .array-row { margin-bottom:8px; }
+.evidence-row { display:grid; grid-template-columns:160px 110px 110px minmax(190px,1fr); gap:8px; }
+.evidence-row input,.evidence-row select { width:100%; border:1px solid var(--line); border-radius:10px; padding:9px 10px; background:white; }
+.field small { color:var(--muted); line-height:1.5; }
 
 @media (max-width: 1050px) {
   .recipe-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -157,10 +165,12 @@ th { background:#f3eee3; color:#657066; text-transform:uppercase; letter-spacing
   .page-head { align-items:flex-start; flex-direction:column; margin-top:14px; }
   .hero { padding:24px; border-radius:22px; min-height:0; }
   .hero-board { grid-template-columns:repeat(2,1fr); }
-  .recipe-grid,.two-col,.form-grid { grid-template-columns:1fr; }
+  .recipe-grid,.two-col,.form-grid,.manual-entry-layout { grid-template-columns:1fr; }
   .stats { gap:9px; }
   .stat { padding:14px; }
   .array-row,.array-row.step-row { grid-template-columns:1fr; padding:12px; border:1px solid var(--line); border-radius:13px; }
+  .manual-array-card .array-row { padding:0; border:0; }
+  .evidence-row { grid-template-columns:1fr 1fr; }
   .field.full { grid-column:auto; }
   .mobile-nav { position:fixed; z-index:40; left:10px; right:10px; bottom:10px; display:grid; grid-template-columns:repeat(5,1fr); background:rgba(255,253,248,.94); border:1px solid var(--line); border-radius:18px; padding:7px; box-shadow:0 15px 40px rgba(45,55,47,.18); backdrop-filter:blur(16px); }
   .mobile-nav a { display:grid; place-items:center; gap:2px; color:var(--muted); font-size:9px; }

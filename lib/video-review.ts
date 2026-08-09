@@ -44,6 +44,13 @@ export type CandidateRecipe = {
   missing: string[];
 };
 
+export type SubtitleVideoFallback = {
+  bvid?: string;
+  title?: string;
+  url?: string;
+  cid?: number;
+};
+
 type UnknownRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): UnknownRecord | null {
@@ -75,24 +82,24 @@ function readCues(value: unknown): SubtitleCue[] {
   }).sort((a, b) => a.from - b.from);
 }
 
-export function parseBilibiliSubtitleExport(input: unknown): SubtitleReviewDocument {
+export function parseBilibiliSubtitleExport(input: unknown, fallback: SubtitleVideoFallback = {}): SubtitleReviewDocument {
   const root = asRecord(input);
   if (!root) throw new Error("字幕 JSON 的最外层必须是对象。");
 
   const videoInput = asRecord(root.video) ?? root;
-  const bvidValue = videoInput.bvid ?? root.bvid;
+  const bvidValue = videoInput.bvid ?? root.bvid ?? fallback.bvid;
   const bvid = typeof bvidValue === "string" ? bvidValue.trim() : "";
   if (!/^BV[0-9A-Za-z]+$/.test(bvid)) throw new Error("字幕 JSON 缺少有效的 BV 号。");
 
-  const titleValue = videoInput.title ?? root.title;
+  const titleValue = videoInput.title ?? root.title ?? fallback.title;
   const title = typeof titleValue === "string" && titleValue.trim()
     ? titleValue.trim()
     : bvid;
-  const urlValue = videoInput.url ?? root.url;
+  const urlValue = videoInput.url ?? root.url ?? fallback.url;
   const url = typeof urlValue === "string" && urlValue.trim()
     ? urlValue.trim()
     : `https://www.bilibili.com/video/${bvid}`;
-  const cid = asNumber(videoInput.cid ?? root.cid);
+  const cid = asNumber(videoInput.cid ?? root.cid ?? fallback.cid);
 
   const trackInputs = Array.isArray(root.tracks)
     ? root.tracks
@@ -155,4 +162,3 @@ export const sampleCandidateRecipes: CandidateRecipe[] = [
       : ["画面克数待写入结构化字段", "字幕步骤待导入"],
   })),
 ];
-

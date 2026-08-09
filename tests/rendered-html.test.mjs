@@ -16,6 +16,19 @@ test("数据库 migration 开启 RLS", async () => {
   assert.match(sql,/logs owner/);
 });
 
+test("手动录入 migration 使用登录用户并原子保存来源版本", async () => {
+  const sql=await readFile(new URL("../supabase/migrations/202608090001_manual_recipe_entry.sql",import.meta.url),"utf8");
+  assert.match(sql,/auth\.uid\(\)/);
+  assert.match(sql,/source_extracted/);
+  assert.match(sql,/on conflict\(owner_id,platform,external_id\)/i);
+});
+
+test("内部触发器函数不能被匿名或普通用户直接调用", async () => {
+  const sql=await readFile(new URL("../supabase/migrations/202608090002_trigger_security_hardening.sql",import.meta.url),"utf8");
+  assert.match(sql,/handle_new_user\(\).*public, anon, authenticated/i);
+  assert.match(sql,/snapshot_recipe_update\(\).*public, anon, authenticated/i);
+});
+
 test("登录页说明这是 CookingApp 的 Supabase Auth 登录", async () => {
   const source=await readFile(new URL("../app/login/page.tsx",import.meta.url),"utf8");
   assert.match(source,/不是登录 GitHub、域名或 Supabase Dashboard/);

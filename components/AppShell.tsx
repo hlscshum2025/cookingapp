@@ -9,6 +9,7 @@ const nav = [
   ["/recipes","▦","菜谱库"],
   ["/imports","⇩","导入中心"],
   ["/video-review","▶","视频审核"],
+  ["/manual-entry","＋","手动录入"],
   ["/ingredients","文","食材词典"],
   ["/translations","译","翻译采购"],
   ["/costs","€","成本核算"],
@@ -16,7 +17,7 @@ const nav = [
   ["/tags","#","标签总览"],
   ["/settings","⚙","设置"],
 ];
-const mobile=nav.slice(0,5);
+const mobile=[nav[0],nav[1],nav[2],nav[4],nav[7]];
 
 export function AppShell({children}:{children:React.ReactNode}) {
   const pathname=usePathname(); const {cloudStatus}=useCooking();
@@ -35,4 +36,3 @@ export function AppShell({children}:{children:React.ReactNode}) {
     <nav className="mobile-nav" aria-label="移动端导航">{mobile.map(([href,icon,label])=><Link key={href} href={href} className={active(href)?"active":""}><b>{icon}</b>{label}</Link>)}</nav>
   </div>;
 }
-

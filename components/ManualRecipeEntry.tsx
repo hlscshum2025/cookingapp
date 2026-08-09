@@ -1,0 +1,143 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { useCooking } from "./CookingProvider";
+import {
+  createBlankManualDraft,
+  createManualRowId,
+  prepareManualEntryPayload,
+  type ManualEvidence,
+  type ManualRecipeDraft,
+} from "@/lib/manual-entry";
+import { persistManualEntry } from "@/lib/supabase";
+import { parseBilibiliSubtitleExport } from "@/lib/video-review";
+
+const evidenceOptions: Array<{ value: ManualEvidence["kind"]; label: string }> = [
+  { value: "manual", label: "人工填写" },
+  { value: "subtitle", label: "AI 字幕" },
+  { value: "video_text", label: "视频画面文字" },
+];
+
+export function ManualRecipeEntry() {
+  const { cloudStatus } = useCooking();
+  const [draft, setDraft] = useState<ManualRecipeDraft>(() => createBlankManualDraft());
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const setSource = <K extends keyof ManualRecipeDraft["source"]>(key: K, value: ManualRecipeDraft["source"][K]) => {
+    setDraft((current) => ({ ...current, source: { ...current.source, [key]: value } }));
+  };
+  const setRecipe = <K extends keyof ManualRecipeDraft["recipe"]>(key: K, value: ManualRecipeDraft["recipe"][K]) => {
+    setDraft((current) => ({ ...current, recipe: { ...current.recipe, [key]: value } }));
+  };
+
+  const importSubtitle = async (file?: File) => {
+    if (!file) return;
+    setError("");
+    try {
+      const parsed = parseBilibiliSubtitleExport(JSON.parse(await file.text()), {
+        bvid: draft.source.externalId,
+        title: draft.source.title || draft.recipe.title,
+        url: draft.source.url,
+      });
+      setDraft((current) => ({
+        ...current,
+        source: {
+          ...current.source,
+          externalId: current.source.externalId || parsed.video.bvid,
+          url: current.source.url || parsed.video.url,
+        },
+        subtitle: parsed,
+        review: { ...current.review, verificationStatus: "ai_suggested" },
+      }));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "字幕 JSON 读取失败。");
+    }
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    if (cloudStatus !== "connected") {
+      setError("请先完成 CookingApp 登录并确认顶部显示“Supabase 已连接”。");
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await persistManualEntry(prepareManualEntryPayload(draft));
+      if (!result) throw new Error("没有收到云端保存结果。");
+      setMessage(`已保存来源、菜谱和第 ${result.versionNo} 个版本；正在打开菜谱。`);
+      window.setTimeout(() => window.location.assign(`/recipes/${result.recipeId}`), 650);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "保存失败。");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <form onSubmit={submit} className="manual-entry-layout">
+    <section className="manual-entry-main">
+      <div className="panel">
+        <div className="section-head"><div><p className="eyebrow">SOURCE</p><h2>来源视频与字幕</h2></div><span className={`badge ${draft.subtitle ? "" : "warn"}`}>{draft.subtitle ? `${draft.subtitle.tracks.reduce((sum, track) => sum + track.cues.length, 0)} 段字幕` : "字幕可选"}</span></div>
+        <div className="form-grid">
+          <div className="field"><label>来源类型</label><select value={draft.source.platform} onChange={(event) => setSource("platform", event.target.value as ManualRecipeDraft["source"]["platform"])}><option value="bilibili">Bilibili</option><option value="manual">无视频／手动来源</option></select></div>
+          <div className="field"><label>BV 号</label><input value={draft.source.externalId} onChange={(event) => setSource("externalId", event.target.value.trim())} placeholder="BV1…"/></div>
+          <div className="field full"><label>视频标题</label><input value={draft.source.title} onChange={(event) => setSource("title", event.target.value)} placeholder="原视频标题；可与菜名不同"/></div>
+          <div className="field full"><label>视频链接</label><input type="url" value={draft.source.url} onChange={(event) => setSource("url", event.target.value)} placeholder="留空时根据 BV 号生成"/></div>
+          <div className="field"><label>UP 主</label><input value={draft.source.uploaderName} onChange={(event) => setSource("uploaderName", event.target.value)}/></div>
+          <div className="field"><label>时长（秒）</label><input type="number" min="0" value={draft.source.durationSeconds ?? ""} onChange={(event) => setSource("durationSeconds", event.target.value ? Number(event.target.value) : undefined)}/></div>
+          <div className="field full"><label>来源说明</label><textarea value={draft.source.description} onChange={(event) => setSource("description", event.target.value)} placeholder="简介、画面信息或需要再次确认的地方"/></div>
+          <div className="field full"><label>AI 字幕 JSON</label><input type="file" accept="application/json,.json" onChange={(event) => importSubtitle(event.target.files?.[0])}/><small>原始 B 站 `body` 格式和 CookingApp 包装格式都可以。原始文件请先填写 BV 号。</small></div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <p className="eyebrow">RECIPE</p><h2>菜谱正文</h2>
+        <div className="form-grid">
+          <div className="field full"><label>菜名 *</label><input required value={draft.recipe.title} onChange={(event) => setRecipe("title", event.target.value)} placeholder="例如：洋葱辣酸奶酱"/></div>
+          <div className="field full"><label>同一视频中的配方标识</label><input required value={draft.recipe.candidateKey} onChange={(event) => setRecipe("candidateKey", event.target.value)} placeholder="main、sauce-1…"/><small>同一视频包含多道菜时必须不同；再次保存同一标识会更新原记录。</small></div>
+          <div className="field full"><label>摘要</label><textarea value={draft.recipe.summary} onChange={(event) => setRecipe("summary", event.target.value)}/></div>
+          <div className="field"><label>份数</label><input type="number" min="1" value={draft.recipe.servings} onChange={(event) => setRecipe("servings", Number(event.target.value))}/></div>
+          <div className="field"><label>总时间（分钟）</label><input type="number" min="0" value={draft.recipe.totalMinutes} onChange={(event) => setRecipe("totalMinutes", Number(event.target.value))}/></div>
+          <div className="field"><label>难度</label><select value={draft.recipe.difficulty} onChange={(event) => setRecipe("difficulty", event.target.value as ManualRecipeDraft["recipe"]["difficulty"])}><option>简单</option><option>中等</option><option>进阶</option></select></div>
+          <div className="field"><label>状态</label><select value={draft.recipe.status} onChange={(event) => setRecipe("status", event.target.value as ManualRecipeDraft["recipe"]["status"])}><option value="inbox">待整理</option><option value="to_try">待尝试</option><option value="successful">已成功</option><option value="needs_work">需改进</option><option value="favorite">常做</option></select></div>
+          <div className="field full"><label>标签（逗号分隔）</label><input value={draft.recipe.tags.join("，")} onChange={(event) => setRecipe("tags", event.target.value.split(/[，,]/).map((item) => item.trim()))}/></div>
+          <div className="field full"><label>厨具（逗号分隔）</label><input value={draft.recipe.tools.join("，")} onChange={(event) => setRecipe("tools", event.target.value.split(/[，,]/).map((item) => item.trim()))}/></div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="section-head"><h2>食材与证据</h2><button type="button" className="btn btn-secondary" onClick={() => setRecipe("ingredients", [...draft.recipe.ingredients, { id: createManualRowId("ingredient"), name: "", amount: "", unit: "g", evidence: { kind: "manual" } }])}>＋ 添加食材</button></div>
+        {draft.recipe.ingredients.map((item, index) => <div className="manual-array-card" key={item.id}>
+          <div className="array-row"><input aria-label={`食材 ${index + 1}`} value={item.name} onChange={(event) => setRecipe("ingredients", draft.recipe.ingredients.map((value, itemIndex) => itemIndex === index ? { ...value, name: event.target.value } : value))} placeholder="食材"/><input aria-label="用量" value={item.amount} onChange={(event) => setRecipe("ingredients", draft.recipe.ingredients.map((value, itemIndex) => itemIndex === index ? { ...value, amount: event.target.value } : value))} placeholder="用量"/><input aria-label="单位" value={item.unit} onChange={(event) => setRecipe("ingredients", draft.recipe.ingredients.map((value, itemIndex) => itemIndex === index ? { ...value, unit: event.target.value } : value))} placeholder="单位"/><input aria-label="处理方式" value={item.preparation ?? ""} onChange={(event) => setRecipe("ingredients", draft.recipe.ingredients.map((value, itemIndex) => itemIndex === index ? { ...value, preparation: event.target.value } : value))} placeholder="处理方式"/><button type="button" className="icon-btn" aria-label="删除食材" onClick={() => setRecipe("ingredients", draft.recipe.ingredients.filter((_, itemIndex) => itemIndex !== index))}>×</button></div>
+          <div className="evidence-row"><select aria-label="食材证据" value={item.evidence.kind} onChange={(event) => setRecipe("ingredients", draft.recipe.ingredients.map((value, itemIndex) => itemIndex === index ? { ...value, evidence: { ...value.evidence, kind: event.target.value as ManualEvidence["kind"] } } : value))}>{evidenceOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select><input aria-label="证据开始秒" type="number" min="0" step="0.1" value={item.evidence.from ?? ""} onChange={(event) => setRecipe("ingredients", draft.recipe.ingredients.map((value, itemIndex) => itemIndex === index ? { ...value, evidence: { ...value.evidence, from: event.target.value ? Number(event.target.value) : undefined } } : value))} placeholder="开始秒"/><input aria-label="证据结束秒" type="number" min="0" step="0.1" value={item.evidence.to ?? ""} onChange={(event) => setRecipe("ingredients", draft.recipe.ingredients.map((value, itemIndex) => itemIndex === index ? { ...value, evidence: { ...value.evidence, to: event.target.value ? Number(event.target.value) : undefined } } : value))} placeholder="结束秒"/><input aria-label="证据备注" value={item.evidence.note ?? ""} onChange={(event) => setRecipe("ingredients", draft.recipe.ingredients.map((value, itemIndex) => itemIndex === index ? { ...value, evidence: { ...value.evidence, note: event.target.value } } : value))} placeholder="画面位置或待核验说明"/></div>
+        </div>)}
+      </div>
+
+      <div className="panel">
+        <div className="section-head"><h2>步骤与证据</h2><button type="button" className="btn btn-secondary" onClick={() => setRecipe("steps", [...draft.recipe.steps, { id: createManualRowId("step"), instruction: "", evidence: { kind: "manual" } }])}>＋ 添加步骤</button></div>
+        {draft.recipe.steps.map((step, index) => <div className="manual-array-card" key={step.id}>
+          <div className="array-row step-row"><span className="step-no">{index + 1}</span><textarea aria-label={`步骤 ${index + 1}`} value={step.instruction} onChange={(event) => setRecipe("steps", draft.recipe.steps.map((value, stepIndex) => stepIndex === index ? { ...value, instruction: event.target.value } : value))} placeholder="操作、火候和完成判断"/><input aria-label="步骤分钟" type="number" min="0" value={step.minutes ?? ""} onChange={(event) => setRecipe("steps", draft.recipe.steps.map((value, stepIndex) => stepIndex === index ? { ...value, minutes: event.target.value ? Number(event.target.value) : undefined } : value))} placeholder="分钟"/><button type="button" className="icon-btn" aria-label="删除步骤" onClick={() => setRecipe("steps", draft.recipe.steps.filter((_, stepIndex) => stepIndex !== index))}>×</button></div>
+          <div className="evidence-row"><select aria-label="步骤证据" value={step.evidence.kind} onChange={(event) => setRecipe("steps", draft.recipe.steps.map((value, stepIndex) => stepIndex === index ? { ...value, evidence: { ...value.evidence, kind: event.target.value as ManualEvidence["kind"] } } : value))}>{evidenceOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select><input aria-label="步骤开始秒" type="number" min="0" step="0.1" value={step.evidence.from ?? ""} onChange={(event) => setRecipe("steps", draft.recipe.steps.map((value, stepIndex) => stepIndex === index ? { ...value, evidence: { ...value.evidence, from: event.target.value ? Number(event.target.value) : undefined } } : value))} placeholder="开始秒"/><input aria-label="步骤结束秒" type="number" min="0" step="0.1" value={step.evidence.to ?? ""} onChange={(event) => setRecipe("steps", draft.recipe.steps.map((value, stepIndex) => stepIndex === index ? { ...value, evidence: { ...value.evidence, to: event.target.value ? Number(event.target.value) : undefined } } : value))} placeholder="结束秒"/><input aria-label="步骤证据备注" value={step.evidence.note ?? ""} onChange={(event) => setRecipe("steps", draft.recipe.steps.map((value, stepIndex) => stepIndex === index ? { ...value, evidence: { ...value.evidence, note: event.target.value } } : value))} placeholder="AI 错词或画面补充"/></div>
+        </div>)}
+      </div>
+    </section>
+
+    <aside className="manual-entry-side">
+      <div className="panel" style={{ position: "sticky", top: 96 }}>
+        <p className="eyebrow">REVIEW</p><h2>核验与保存</h2>
+        <div className="field"><label>当前核验状态</label><select value={draft.review.verificationStatus} onChange={(event) => setDraft((current) => ({ ...current, review: { ...current.review, verificationStatus: event.target.value as ManualRecipeDraft["review"]["verificationStatus"] } }))}><option value="unverified">未核验</option><option value="ai_suggested">AI 建议</option><option value="source_verified">已对照来源</option><option value="user_verified">已人工确认</option></select></div>
+        <div className="field" style={{ marginTop: 14 }}><label>核验备注</label><textarea value={draft.review.note} onChange={(event) => setDraft((current) => ({ ...current, review: { ...current.review, note: event.target.value } }))} placeholder="例如：克数来自 00:12 的画面，字幕仍有错词"/></div>
+        <div className="field" style={{ marginTop: 14 }}><label>版本说明</label><textarea value={draft.recipe.versionNote} onChange={(event) => setRecipe("versionNote", event.target.value)}/></div>
+        <div className="notice" style={{ marginTop: 16 }}>保存会在一次数据库事务中查重并写入来源视频、菜谱正文和来源版本。AI 字幕保留原始身份，不自动标记为人工确认。</div>
+        {cloudStatus !== "connected" && <div className="notice" style={{ marginTop: 12, background: "#fbe5de", color: "#923c29" }}>当前不能写入云端。请先去<Link href="/login" style={{ textDecoration: "underline" }}>登录页面</Link>完成 CookingApp 登录。</div>}
+        {error && <div className="notice" role="alert" style={{ marginTop: 12, background: "#fbe5de", color: "#923c29" }}>{error}</div>}
+        {message && <div className="notice" role="status" style={{ marginTop: 12, background: "var(--leaf-soft)", color: "var(--leaf)" }}>{message}</div>}
+        <button className="btn btn-primary" type="submit" disabled={saving || cloudStatus !== "connected"} style={{ width: "100%", marginTop: 18 }}>{saving ? "正在写入 Supabase…" : "保存来源与候选菜谱"}</button>
+      </div>
+    </aside>
+  </form>;
+}

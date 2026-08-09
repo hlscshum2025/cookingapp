@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CookingLog, ImportJobSummary, ImportResult, IngredientMapping, NormalizedFavoriteVideo, Recipe } from "./types";
+import type { ManualEntryPayload, ManualEntryResult } from "./manual-entry";
 
 let client:SupabaseClient|null=null;
 export function getSupabase(){
@@ -31,6 +32,7 @@ export async function importBilibiliFavorites(videos:NormalizedFavoriteVideo[],m
 }
 
 export async function persistRecipe(recipe:Recipe){const s=getSupabase();if(!s)return;const {data:{user}}=await s.auth.getUser();if(!user)return;const {error}=await s.from("recipes").upsert({id:recipe.id,owner_id:user.id,title:recipe.title,summary:recipe.summary,status:recipe.status,visibility:recipe.visibility,total_minutes:recipe.totalMinutes,document:recipe,updated_at:new Date().toISOString()});if(error)throw error;}
+export async function persistManualEntry(payload:ManualEntryPayload):Promise<ManualEntryResult|null>{const s=getSupabase();if(!s)return null;const {data:{user}}=await s.auth.getUser();if(!user)throw new Error("请先登录 CookingApp。");const {data,error}=await s.rpc("save_manual_recipe",{p_payload:payload});if(error){if(error.message.includes("save_manual_recipe"))throw new Error("数据库尚未安装手动录入函数，请先运行 supabase/migrations/202608090001_manual_recipe_entry.sql");throw error;}const result=data as Record<string,unknown>;return{recipeId:String(result.recipeId||result.recipe_id||""),sourceVideoId:result.sourceVideoId?String(result.sourceVideoId):undefined,versionId:String(result.versionId||result.version_id||""),versionNo:Number(result.versionNo||result.version_no||0)};}
 export async function removeCloudRecipe(id:string){const s=getSupabase();if(!s)return;const {data:{user}}=await s.auth.getUser();if(!user)return;const {error}=await s.from("recipes").update({deleted_at:new Date().toISOString()}).eq("id",id).eq("owner_id",user.id);if(error)throw error;}
 export async function persistLog(log:CookingLog){const s=getSupabase();if(!s)return;const {data:{user}}=await s.auth.getUser();if(!user)return;const document={...log,photoUrl:undefined};const {error}=await s.from("cooking_logs").upsert({id:log.id,owner_id:user.id,recipe_id:log.recipeId,cooked_at:log.cookedAt,rating:log.rating,document});if(error)throw error;}
 export async function persistIngredient(item:IngredientMapping){const s=getSupabase();if(!s)return;const {data:{user}}=await s.auth.getUser();if(!user)return;const {error}=await s.from("ingredients").upsert({id:item.id,owner_id:user.id,canonical_name_zh:item.zh,name_en:item.en,name_de:item.de,gluten_status:item.gluten,verification_status:item.verified?"user_verified":"unverified",document:item,updated_at:new Date().toISOString()});if(error)throw error;}

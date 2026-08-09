@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { calculateRecipeCost, convertAmount } from "../lib/costing.ts";
 import { groupIngredientTranslations } from "../lib/ingredient-sourcing.ts";
 import { parseBilibiliSubtitleExport, sampleCandidateRecipes } from "../lib/video-review.ts";
+import { prepareManualEntryPayload } from "../lib/manual-entry.ts";
 
 test("字幕导出 JSON 会规范化时间轴和 AI 标记", () => {
   const parsed = parseBilibiliSubtitleExport({
@@ -14,6 +15,24 @@ test("字幕导出 JSON 会规范化时间轴和 AI 标记", () => {
   assert.equal(parsed.video.bvid, "BV1CQ4y1j7or");
   assert.equal(parsed.tracks[0].isAi, true);
   assert.deepEqual(parsed.tracks[0].cues[0], { from: 1.2, to: 2.8, text: "加入面粉" });
+});
+
+test("原始 B 站字幕可借助手动填写的 BV 号导入", () => {
+  const parsed = parseBilibiliSubtitleExport({ body: [{ from: 1, to: 2, content: "字幕" }] }, { bvid: "BV1TEST12345", title: "测试" });
+  assert.equal(parsed.video.bvid, "BV1TEST12345");
+  assert.equal(parsed.tracks[0].cues.length, 1);
+});
+
+test("手动录入会过滤空行并保留证据", () => {
+  const payload = prepareManualEntryPayload({
+    source:{platform:"bilibili",externalId:"BV1TEST12345",url:"",title:"来源",uploaderName:"",coverUrl:"",description:""},
+    recipe:{id:"",candidateKey:"main",title:"测试菜",summary:"",emoji:"🍳",color:"#fff",servings:2,totalMinutes:0,difficulty:"简单",status:"inbox",visibility:"private",tags:["待核验"],tools:[],ingredients:[{id:"i1",name:"面粉",amount:"500",unit:"g",evidence:{kind:"video_text",from:12}}],steps:[{id:"s1",instruction:"揉面",evidence:{kind:"subtitle",from:20,to:25}},{id:"s2",instruction:"",evidence:{kind:"manual"}}],versionNote:"来源版",updatedAt:""},
+    review:{verificationStatus:"ai_suggested",note:"待核验"},
+  });
+  assert.equal(payload.recipe.ingredients.length, 1);
+  assert.equal(payload.recipe.steps.length, 1);
+  assert.equal(payload.recipe.contentReview.ingredientEvidence[0].evidence.kind, "video_text");
+  assert.equal(payload.source.url, "https://www.bilibili.com/video/BV1TEST12345");
 });
 
 test("两个样本拆成四份候选来源菜谱且不猜酸奶酱克数", () => {
@@ -49,4 +68,5 @@ test("导航已经接入视频审核、翻译采购与成本核算", async () =>
   assert.match(source, /\/video-review/);
   assert.match(source, /\/translations/);
   assert.match(source, /\/costs/);
+  assert.match(source, /\/manual-entry/);
 });
