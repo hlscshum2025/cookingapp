@@ -29,6 +29,26 @@ test("内部触发器函数不能被匿名或普通用户直接调用", async ()
   assert.match(sql,/snapshot_recipe_update\(\).*public, anon, authenticated/i);
 });
 
+test("私有首版 migration 关闭匿名菜谱并校验跨用户关联", async () => {
+  const sql=await readFile(new URL("../supabase/migrations/20260810060929_harden_rls_cross_owner_relations.sql",import.meta.url),"utf8");
+  assert.match(sql,/drop policy if exists "recipes public read"/i);
+  assert.ok((sql.match(/to authenticated/gi)??[]).length>=12);
+  assert.match(sql,/recipes\.id = recipe_versions\.recipe_id/i);
+  assert.match(sql,/import_jobs\.id = import_items\.job_id/i);
+  assert.match(sql,/source_videos\.id = import_items\.source_video_id/i);
+  assert.match(sql,/tags\.id = recipe_tags\.tag_id/i);
+  assert.match(sql,/from public, anon, authenticated/i);
+});
+
+test("RLS 矩阵覆盖 115 项并显式清理测试身份", async () => {
+  const sql=await readFile(new URL("../supabase/tests/rls_privacy_matrix.sql",import.meta.url),"utf8");
+  assert.match(sql,/expect_count\(115,/i);
+  assert.match(sql,/delete from auth\.users/i);
+  assert.match(sql,/cross_user_association/i);
+  assert.match(sql,/owner_tamper/i);
+  assert.match(sql,/rpc_regression/i);
+});
+
 test("登录页说明这是 CookingApp 的 Supabase Auth 登录", async () => {
   const source=await readFile(new URL("../app/login/page.tsx",import.meta.url),"utf8");
   assert.match(source,/不是登录 GitHub、域名或 Supabase Dashboard/);

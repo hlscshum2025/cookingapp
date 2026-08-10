@@ -14,7 +14,7 @@
 - B 站收藏夹 JSON 导入、BV 号去重、预览与待整理队列
 - 中英德食材词典、德国购买关键词、无麸质与人工确认状态
 - 做菜日志：日期、评分、本次调整、结果、下次改进和私有照片
-- 公开只读分享页、二维码和复制链接；不展示私人日志和导入原始数据
+- 公开只读分享页、二维码和复制链接骨架；私有首版暂不开放匿名数据库读取
 - Supabase 邮箱魔法链接登录、RLS、自动版本快照
 - 完整 JSON 备份导出和 PWA manifest
 - 完整备份覆盖 10 张业务表；Storage 图片保持独立，避免 JSON 膨胀
@@ -32,11 +32,14 @@
 7. 再复制并运行 [`supabase/migrations/202608030001_import_audit.sql`](supabase/migrations/202608030001_import_audit.sql)，补齐来源视频、逐条审计和原子批量导入函数。
 8. 运行 [`supabase/migrations/202608090001_manual_recipe_entry.sql`](supabase/migrations/202608090001_manual_recipe_entry.sql)，安装手动录入的查重与原子保存函数。
 9. 运行 [`supabase/migrations/202608090002_trigger_security_hardening.sql`](supabase/migrations/202608090002_trigger_security_hardening.sql)，禁止从 RPC 直接调用内部触发器函数。
-10. 进入 `Project Settings → Data API / API Keys`，复制：
+10. 运行 [`supabase/migrations/20260810060929_harden_rls_cross_owner_relations.sql`](supabase/migrations/20260810060929_harden_rls_cross_owner_relations.sql)，关闭匿名菜谱读取并阻止跨用户关联注入。
+11. 进入 `Project Settings → Data API / API Keys`，复制：
    - Project URL
    - Publishable key（旧项目可能显示 `anon public key`）
-11. 在本地复制 `.env.example` 为 `.env.local`，填入这两项。
-12. 进入 `Authentication → URL Configuration`，开发阶段把 Site URL 填为 `http://localhost:3000`；上线时改为正式域名，并把正式回调地址加入 Redirect URLs。
+12. 在本地复制 `.env.example` 为 `.env.local`，填入这两项。
+13. 进入 `Authentication → URL Configuration`，开发阶段把 Site URL 填为 `http://localhost:3000`；上线时改为正式域名，并把正式回调地址加入 Redirect URLs。
+
+若要在有 `psql` 的管理环境重复验证真实越权矩阵，请把数据库连接串仅放在本机环境变量 `COOKINGAPP_DATABASE_URL` 中，然后运行 `bash scripts/run-rls-matrix.sh`。脚本不会把连接串写入仓库。
 
 前端绝对不要使用 `service_role`、secret key 或数据库密码，也不要把 `.env.local` 提交到 GitHub。Publishable/anon key 可以出现在浏览器端，真正的数据隔离由 migration 中的 Row Level Security 完成。
 
