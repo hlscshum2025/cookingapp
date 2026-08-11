@@ -1,25 +1,78 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { CookingLog, ImportJobSummary, ImportResult, IngredientMapping, NormalizedFavoriteVideo, Recipe } from "./types";
+import type { CookingLog, ImportJobSummary, ImportResult, IngredientMapping, NormalizedFavoriteVideo, Recipe, SourceVideo } from "./types";
 import type { ManualEntryPayload, ManualEntryResult } from "./manual-entry";
 
 let client:SupabaseClient|null=null;
-export function getSupabase(){
-  const url=process.env.NEXT_PUBLIC_SUPABASE_URL; const key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if(!url||!key)return null; if(!client)client=createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}); return client;
+let connection:Promise<SupabaseClient|null>|null=null;
+let runtimeConfig:RuntimeConfig|null=null;
+let runtimeConfigRequest:Promise<RuntimeConfig|null>|null=null;
+
+type RuntimeConfig = {supabaseUrl?:unknown;supabasePublishableKey?:unknown;turnstileSiteKey?:unknown};
+
+function validRuntimeConfig(value:RuntimeConfig):value is {supabaseUrl:string;supabasePublishableKey:string}{
+  if(typeof value.supabaseUrl!=="string"||typeof value.supabasePublishableKey!=="string")return false;
+  try{return new URL(value.supabaseUrl).protocol==="https:"&&value.supabasePublishableKey.length>=20;}catch{return false;}
 }
+
+export async function connectSupabase(){
+  if(client)return client;
+  if(typeof window==="undefined")return null;
+  if(!connection){
+    connection=loadRuntimeConfig()
+      .then(config=>{
+        if(!config||!validRuntimeConfig(config))throw new Error("Supabase runtime configuration is invalid.");
+        client=createClient(config.supabaseUrl,config.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+        return client;
+      })
+      .catch(()=>null)
+      .finally(()=>{connection=null;});
+  }
+  return connection;
+}
+
+async function loadRuntimeConfig(){
+  if(runtimeConfig)return runtimeConfig;
+  if(!runtimeConfigRequest){
+    runtimeConfigRequest=fetch("/api/runtime-config",{headers:{Accept:"application/json"},cache:"default"})
+      .then(async response=>{
+        if(!response.ok)throw new Error("Supabase runtime configuration is unavailable.");
+        runtimeConfig=await response.json() as RuntimeConfig;
+        return runtimeConfig;
+      })
+      .catch(()=>null)
+      .finally(()=>{runtimeConfigRequest=null;});
+  }
+  return runtimeConfigRequest;
+}
+
+export async function getTurnstileSiteKey(){
+  const config=await loadRuntimeConfig();
+  return typeof config?.turnstileSiteKey==="string"&&config.turnstileSiteKey.length>=10
+    ?config.turnstileSiteKey
+    :null;
+}
+
+export function getSupabase(){return client;}
 
 export async function loadCloudData(userId:string){
   const supabase=getSupabase(); if(!supabase)return null;
-  const [recipes,logs,ingredients,importJobs]=await Promise.all([
+  const [recipes,logs,ingredients,importJobs,sourceVideos]=await Promise.all([
     supabase.from("recipes").select("document").eq("owner_id",userId).is("deleted_at",null).order("updated_at",{ascending:false}),
     supabase.from("cooking_logs").select("document").eq("owner_id",userId).order("cooked_at",{ascending:false}),
     supabase.from("ingredients").select("document").eq("owner_id",userId).order("updated_at",{ascending:false}),
-    supabase.from("import_jobs").select("id,file_name,source_collection_id,status,counters,created_at,finished_at").eq("owner_id",userId).order("created_at",{ascending:false}).limit(20)
+    supabase.from("import_jobs").select("id,file_name,source_collection_id,status,counters,created_at,finished_at").eq("owner_id",userId).order("created_at",{ascending:false}).limit(20),
+    supabase.from("source_videos").select("id,platform,external_id,url,title,uploader_name,cover_url,description,availability,duration_seconds,published_at,favorited_at,updated_at").eq("owner_id",userId).order("updated_at",{ascending:false})
   ]);
-  if(recipes.error)throw recipes.error; if(logs.error)throw logs.error; if(ingredients.error)throw ingredients.error; if(importJobs.error)throw importJobs.error;
+  if(recipes.error)throw recipes.error; if(logs.error)throw logs.error; if(ingredients.error)throw ingredients.error; if(importJobs.error)throw importJobs.error; if(sourceVideos.error)throw sourceVideos.error;
   const cloudLogs=await Promise.all((logs.data||[]).map(async row=>{const log=row.document as CookingLog;if(!log.photoPath)return log;const {data}=await supabase.storage.from("recipe-images").createSignedUrl(log.photoPath,3600);return {...log,photoUrl:data?.signedUrl};}));
   const jobs:ImportJobSummary[]=(importJobs.data||[]).map(row=>{const counters=(row.counters||{}) as Record<string,number>;return{id:row.id,fileName:row.file_name||undefined,sourceCollectionId:row.source_collection_id||undefined,status:row.status,total:counters.total||0,added:counters.added||0,duplicates:counters.duplicates||0,failed:counters.failed||0,skipped:counters.skipped||0,createdAt:row.created_at,finishedAt:row.finished_at||undefined};});
-  return {recipes:(recipes.data||[]).map(r=>r.document as Recipe),logs:cloudLogs,ingredients:(ingredients.data||[]).map(r=>r.document as IngredientMapping),importJobs:jobs};
+  const videos:SourceVideo[]=(sourceVideos.data||[]).map(row=>({
+    id:row.id,platform:row.platform,externalId:row.external_id,url:row.url,title:row.title||row.external_id,
+    uploaderName:row.uploader_name||"",coverUrl:row.cover_url||"",description:row.description||"",
+    availability:row.availability||"available",durationSeconds:row.duration_seconds??undefined,
+    publishedAt:row.published_at??undefined,favoritedAt:row.favorited_at??undefined,updatedAt:row.updated_at,
+  }));
+  return {recipes:(recipes.data||[]).map(r=>r.document as Recipe),logs:cloudLogs,ingredients:(ingredients.data||[]).map(r=>r.document as IngredientMapping),importJobs:jobs,sourceVideos:videos};
 }
 
 export async function importBilibiliFavorites(videos:NormalizedFavoriteVideo[],metadata:{collectionId?:string;fileName?:string}):Promise<ImportResult|null>{
