@@ -106,7 +106,7 @@ export function createBlankManualDraft(): ManualRecipeDraft {
       visibility: "private",
       tags: ["待核验"],
       tools: [],
-      ingredients: [{ id: createManualRowId("ingredient"), name: "", amount: "", unit: "g", evidence: defaultEvidence() }],
+      ingredients: [{ id: createManualRowId("ingredient"), name: "", amount: "", unit: "", evidence: defaultEvidence() }],
       steps: [{ id: createManualRowId("step"), instruction: "", evidence: defaultEvidence() }],
       versionNote: "手动录入的来源整理版；未知字段保持待核验。",
       updatedAt: new Date().toISOString().slice(0, 10),
