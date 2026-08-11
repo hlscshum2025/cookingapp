@@ -1,4 +1,4 @@
-import type { Recipe, RecipeStatus } from "./types";
+import type { Recipe, RecipeStatus, SourceVideo } from "./types";
 import type { EvidenceKind, SubtitleReviewDocument } from "./video-review";
 
 export type ReviewVerificationStatus = "unverified" | "ai_suggested" | "user_verified" | "source_verified";
@@ -112,6 +112,25 @@ export function createBlankManualDraft(): ManualRecipeDraft {
       updatedAt: new Date().toISOString().slice(0, 10),
     },
     review: { verificationStatus: "unverified", note: "" },
+  };
+}
+
+export function createDraftFromSource(source?:SourceVideo):ManualRecipeDraft {
+  const draft=createBlankManualDraft();
+  if(!source)return draft;
+  return {
+    ...draft,
+    source:{
+      platform:source.platform==="bilibili"?"bilibili":"manual",
+      externalId:source.externalId,
+      url:source.url,
+      title:source.title,
+      uploaderName:source.uploaderName,
+      coverUrl:source.coverUrl,
+      description:source.description,
+      durationSeconds:source.durationSeconds,
+    },
+    recipe:{...draft.recipe,title:source.title,summary:source.description},
   };
 }
 
