@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCooking } from "./CookingProvider";
 import {
-  createBlankManualDraft,
+  createDraftFromSource,
   createManualRowId,
   prepareManualEntryPayload,
   type ManualEvidence,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/manual-entry";
 import { persistManualEntry } from "@/lib/supabase";
 import { parseBilibiliSubtitleExport } from "@/lib/video-review";
+import type { SourceVideo } from "@/lib/types";
 
 const evidenceOptions: Array<{ value: ManualEvidence["kind"]; label: string }> = [
   { value: "manual", label: "人工填写" },
@@ -19,9 +21,10 @@ const evidenceOptions: Array<{ value: ManualEvidence["kind"]; label: string }> =
   { value: "video_text", label: "视频画面文字" },
 ];
 
-export function ManualRecipeEntry() {
-  const { cloudStatus } = useCooking();
-  const [draft, setDraft] = useState<ManualRecipeDraft>(() => createBlankManualDraft());
+export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={}) {
+  const router=useRouter();
+  const { cloudStatus,refreshCloudData } = useCooking();
+  const [draft, setDraft] = useState<ManualRecipeDraft>(() => createDraftFromSource(initialSource));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -70,7 +73,8 @@ export function ManualRecipeEntry() {
       const result = await persistManualEntry(prepareManualEntryPayload(draft));
       if (!result) throw new Error("没有收到云端保存结果。");
       setMessage(`已保存来源、菜谱和第 ${result.versionNo} 个版本；正在打开菜谱。`);
-      window.setTimeout(() => window.location.assign(`/recipes/${result.recipeId}`), 650);
+      await refreshCloudData();
+      router.push(`/recipes/${result.recipeId}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "保存失败。");
     } finally {

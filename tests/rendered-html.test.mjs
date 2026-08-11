@@ -49,22 +49,75 @@ test("RLS 矩阵覆盖 115 项并显式清理测试身份", async () => {
   assert.match(sql,/rpc_regression/i);
 });
 
-test("登录页说明这是 CookingApp 的 Supabase Auth 登录", async () => {
+test("登录页支持独立账号密码、注册确认和密码恢复", async () => {
   const source=await readFile(new URL("../app/login/page.tsx",import.meta.url),"utf8");
-  assert.match(source,/不是登录 GitHub、域名或 Supabase Dashboard/);
-  assert.match(source,/第一次也不用先注册/);
+  assert.match(source,/signInWithPassword/);
+  assert.match(source,/\.auth\.signUp/);
+  assert.match(source,/\.auth\.resend/);
+  assert.match(source,/type:"signup"/);
+  assert.match(source,/emailRedirectTo:window\.location\.origin/);
+  assert.match(source,/resetPasswordForEmail/);
+  assert.match(source,/redirectTo:window\.location\.origin/);
+  assert.match(source,/新账号只会看到自己的空白知识库/);
+  assert.match(source,/管理者也从此处登录/);
+  assert.match(source,/getTurnstileSiteKey/);
+  assert.match(source,/captchaToken/);
+  assert.match(source,/challenges\.cloudflare\.com\/turnstile/);
+  assert.doesNotMatch(source,/首次设置/);
+  assert.ok(source.indexOf("没有账号？注册新账号")<source.indexOf("忘记密码？"));
+});
+
+test("手机底栏按标签、导入、词典、翻译采购、成本排列", async () => {
+  const source=await readFile(new URL("../components/AppShell.tsx",import.meta.url),"utf8");
+  assert.match(source,/const mobile=\[findNav\("\/tags"\),findNav\("\/imports"\),findNav\("\/ingredients"\),findNav\("\/translations"\),findNav\("\/costs"\)\]/);
+});
+
+test("托管生产环境未登录时清空本地副本并统一进入登录页", async () => {
+  const provider=await readFile(new URL("../components/CookingProvider.tsx",import.meta.url),"utf8");
+  const shell=await readFile(new URL("../components/AppShell.tsx",import.meta.url),"utf8");
+  assert.match(provider,/localStorage\.removeItem/);
+  assert.match(provider,/setRecipes\(\[\]\);setLogs\(\[\]\);setIngredients\(\[\]\)/);
+  assert.match(provider,/ready&&isDemo/);
+  assert.match(provider,/connectSupabase/);
+  assert.match(provider,/event==="PASSWORD_RECOVERY"/);
+  assert.match(provider,/event==="INITIAL_SESSION"/);
+  assert.match(provider,/event==="SIGNED_IN"/);
+  assert.match(provider,/loadedUserId===session\.user\.id/);
+  assert.match(provider,/location\.replace\("\/login\?mode=recovery"\)/);
+  assert.match(provider,/setCloudStatus\("unconfigured"\)/);
+  assert.match(shell,/cloudStatus==="signed_out"/);
+  assert.match(shell,/正在后台同步最新菜谱/);
+  assert.match(shell,/router\.prefetch/);
+  assert.match(shell,/router\.replace\(`\/login\?next=/);
 });
 
 test("未登录导入会明确提示不写入 Supabase", async () => {
   const source=await readFile(new URL("../app/imports/page.tsx",import.meta.url),"utf8");
   assert.match(source,/Supabase 尚未配置：不会收到任何数据/);
-  assert.match(source,/Supabase 配置已读取，但 CookingApp 尚未登录/);
-  assert.match(source,/本机演示导入完成（未写入 Supabase）/);
+  assert.match(source,/CookingApp 尚未登录/);
+  assert.match(source,/本机演示导入完成/);
 });
 
-test("设置页区分环境配置、用户登录和当前数据模式", async () => {
+test("导入中心读取 source_videos 并串联播放与手工录入", async () => {
+  const provider=await readFile(new URL("../components/CookingProvider.tsx",import.meta.url),"utf8");
+  const supabase=await readFile(new URL("../lib/supabase.ts",import.meta.url),"utf8");
+  const imports=await readFile(new URL("../app/imports/page.tsx",import.meta.url),"utf8");
+  assert.match(supabase,/from\("source_videos"\)\.select/);
+  assert.match(provider,/sourceVideos/);
+  assert.match(imports,/player\.bilibili\.com\/player\.html\?bvid=/);
+  assert.match(imports,/在 B 站打开原视频/);
+  assert.match(imports,/一键进入手动录入/);
+  assert.match(imports,/initialSource=\{selected\}/);
+  assert.match(imports,/source-review-card/);
+  assert.match(imports,/is-floating/);
+  assert.match(imports,/一键自动导入暂时保留入口/);
+});
+
+test("设置页区分环境配置、用户登录和当前数据模式并可设置密码", async () => {
   const source=await readFile(new URL("../app/settings/page.tsx",import.meta.url),"utf8");
-  assert.match(source,/未读取到 \.env\.local/);
+  assert.match(source,/站点配置不可用/);
   assert.match(source,/已读取 Supabase 配置/);
-  assert.match(source,/现在只差点击邮箱魔法链接/);
+  assert.match(source,/设置账号登录密码/);
+  assert.match(source,/updateUser\(\{password:newPassword\}\)/);
+  assert.match(source,/finally\{setPasswordBusy\(false\);\}/);
 });
