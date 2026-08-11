@@ -1,6 +1,36 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 
-export default function LoginPage(){const [email,setEmail]=useState("");const [message,setMessage]=useState("");const submit=async(e:React.FormEvent)=>{e.preventDefault();const s=getSupabase();if(!s){setMessage("请先在 .env.local 中填写 Supabase URL 和 publishable key，保存后重启 npm run dev。");return;}const {error}=await s.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin}});setMessage(error?error.message:"登录链接已经发送到邮箱。请在同一台电脑、同一浏览器中打开邮件里的链接。")};return <div className="page" style={{maxWidth:680}}><header className="page-head"><div><p className="eyebrow">SIGN IN</p><h1>登录 CookingApp</h1><p className="subtitle">这是应用自己的管理者登录，由 Supabase Auth 保存会话；不是登录 GitHub、域名或 Supabase Dashboard。</p></div></header><div className="notice" style={{marginBottom:16}}><b>第一次也不用先注册。</b><br/>填写一个你能收信的邮箱，点击邮件中的魔法链接后，Supabase 会自动建立这个 CookingApp 用户。成功后，设置页会显示你的邮箱，顶部会显示“Supabase 已连接”。</div><form className="panel" onSubmit={submit}><div className="field"><label>管理者邮箱地址</label><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></div><button className="btn btn-primary" style={{width:"100%",marginTop:16}}>发送 CookingApp 登录链接</button>{message&&<div className="notice" style={{marginTop:16}}>{message}</div>}</form></div>}
+export default function LoginPage(){
+  const params=useSearchParams();
+  const [email,setEmail]=useState("");
+  const [password,setPassword]=useState("");
+  const [message,setMessage]=useState(params.get("verified")?"邮箱验证完成，现在可以登录。":"");
+  const [busy,setBusy]=useState(false);
+
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault();
+    const s=getSupabase();
+    if(!s){setMessage("当前部署尚未配置 Supabase URL / Publishable key。");return;}
+    setBusy(true);setMessage("");
+    const {error}=await s.auth.signInWithPassword({email,password});
+    setBusy(false);
+    if(error){setMessage(error.message);return;}
+    location.href="/";
+  };
+
+  return <div className="page" style={{maxWidth:680}}>
+    <header className="page-head"><div><p className="eyebrow">SIGN IN</p><h1>登录 CookingApp</h1><p className="subtitle">使用已经注册并验证过的邮箱和密码登录。登录不会自动创建新账号。</p></div></header>
+    <form className="panel" onSubmit={submit}>
+      <div className="field"><label>邮箱地址</label><input required autoComplete="email" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></div>
+      <div className="field" style={{marginTop:12}}><label>密码</label><input required autoComplete="current-password" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="你的 CookingApp 密码"/></div>
+      <button className="btn btn-primary" disabled={busy} style={{width:"100%",marginTop:16}}>{busy?"正在登录…":"登录"}</button>
+      {message&&<div className="notice" style={{marginTop:16}}>{message}</div>}
+      <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginTop:16}}><Link href="/register">还没有账号？注册</Link><Link href="/forgot-password">忘记密码</Link></div>
+    </form>
+  </div>;
+}
