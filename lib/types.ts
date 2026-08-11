@@ -107,6 +107,22 @@ export type NormalizedFavoriteVideo = {
   raw: FavoriteVideo;
 };
 
+export type SourceVideo = {
+  id: string;
+  platform: string;
+  externalId: string;
+  url: string;
+  title: string;
+  uploaderName: string;
+  coverUrl: string;
+  description: string;
+  availability: string;
+  durationSeconds?: number;
+  publishedAt?: string;
+  favoritedAt?: string;
+  updatedAt: string;
+};
+
 export type ImportItemStatus = "processed" | "duplicate" | "failed" | "skipped";
 
 export type ImportItemAudit = {
