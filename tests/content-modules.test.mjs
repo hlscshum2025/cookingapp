@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { calculateRecipeCost, convertAmount } from "../lib/costing.ts";
 import { groupIngredientTranslations } from "../lib/ingredient-sourcing.ts";
 import { parseBilibiliSubtitleExport, sampleCandidateRecipes } from "../lib/video-review.ts";
-import { prepareManualEntryPayload } from "../lib/manual-entry.ts";
+import { createDraftFromSource, prepareManualEntryPayload } from "../lib/manual-entry.ts";
 
 test("字幕导出 JSON 会规范化时间轴和 AI 标记", () => {
   const parsed = parseBilibiliSubtitleExport({
@@ -33,6 +33,15 @@ test("手动录入会过滤空行并保留证据", () => {
   assert.equal(payload.recipe.steps.length, 1);
   assert.equal(payload.recipe.contentReview.ingredientEvidence[0].evidence.kind, "video_text");
   assert.equal(payload.source.url, "https://www.bilibili.com/video/BV1TEST12345");
+});
+
+test("来源视频会自动带入手动录入所需字段", () => {
+  const draft=createDraftFromSource({id:"source-1",platform:"bilibili",externalId:"BV1TEST12345",url:"https://www.bilibili.com/video/BV1TEST12345",title:"测试菜谱",uploaderName:"测试UP主",coverUrl:"",description:"来源简介",availability:"available",durationSeconds:61,updatedAt:"2026-08-11T00:00:00Z"});
+  assert.equal(draft.source.externalId,"BV1TEST12345");
+  assert.equal(draft.source.title,"测试菜谱");
+  assert.equal(draft.source.uploaderName,"测试UP主");
+  assert.equal(draft.source.url,"https://www.bilibili.com/video/BV1TEST12345");
+  assert.equal(draft.recipe.title,"测试菜谱");
 });
 
 test("两个样本拆成四份候选来源菜谱且不猜酸奶酱克数", () => {
@@ -63,10 +72,12 @@ test("不同维度单位不会被错误相加", () => {
   assert.throws(() => convertAmount(100, "g", "ml"), /单位不兼容/);
 });
 
-test("导航已经接入视频审核、翻译采购与成本核算", async () => {
+test("导航已经接入主入口和移动端更多菜单", async () => {
   const source = await readFile(new URL("../components/AppShell.tsx", import.meta.url), "utf8");
-  assert.match(source, /\/video-review/);
+  assert.match(source, /\/imports/);
   assert.match(source, /\/translations/);
   assert.match(source, /\/costs/);
-  assert.match(source, /\/manual-entry/);
+  assert.doesNotMatch(source, /\/manual-entry/);
+  assert.match(source, /mobileMore/);
+  assert.match(source, />更多<\/button>/);
 });
