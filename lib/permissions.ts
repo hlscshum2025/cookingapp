@@ -1,25 +1,30 @@
 export type AppRole = "user" | "admin";
 export type AppPermission =
   | "recipes.manage_own"
+  | "recipes.request_publication"
   | "imports.manage_own"
   | "backup.export_own"
   | "backup.restore_merge_own"
   | "backup.restore_replace_own"
+  | "admin.review_publications"
   | "admin.diagnostics";
 
 const rolePermissions:Record<AppRole,ReadonlySet<AppPermission>>={
   user:new Set([
     "recipes.manage_own",
+    "recipes.request_publication",
     "imports.manage_own",
     "backup.export_own",
     "backup.restore_merge_own",
   ]),
   admin:new Set([
     "recipes.manage_own",
+    "recipes.request_publication",
     "imports.manage_own",
     "backup.export_own",
     "backup.restore_merge_own",
     "backup.restore_replace_own",
+    "admin.review_publications",
     "admin.diagnostics",
   ]),
 };
