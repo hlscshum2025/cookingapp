@@ -1,0 +1,50 @@
+import type { SourceVideo } from "./types";
+import { getSupabase } from "./supabase";
+
+function mapSource(row:Record<string,unknown>):SourceVideo{
+  return {
+    id:String(row.id||""),
+    platform:String(row.platform||""),
+    externalId:String(row.external_id||""),
+    url:String(row.url||""),
+    title:String(row.title||row.external_id||"待整理视频"),
+    uploaderName:String(row.uploader_name||""),
+    coverUrl:String(row.cover_url||""),
+    description:String(row.description||""),
+    availability:String(row.availability||"available"),
+    durationSeconds:row.duration_seconds===null||row.duration_seconds===undefined?undefined:Number(row.duration_seconds),
+    publishedAt:row.published_at?String(row.published_at):undefined,
+    favoritedAt:row.favorited_at?String(row.favorited_at):undefined,
+    updatedAt:String(row.updated_at||""),
+  };
+}
+
+export async function loadPendingSourceVideos():Promise<SourceVideo[]>{
+  const s=getSupabase();
+  if(!s)return [];
+  const {data:{user},error:userError}=await s.auth.getUser();
+  if(userError)throw userError;
+  if(!user)return [];
+  const {data,error}=await s
+    .from("source_videos")
+    .select("id,platform,external_id,url,title,uploader_name,cover_url,description,availability,duration_seconds,published_at,favorited_at,updated_at")
+    .eq("owner_id",user.id)
+    .eq("workflow_status","pending")
+    .order("updated_at",{ascending:false});
+  if(error)throw error;
+  return (data||[]).map(row=>mapSource(row as Record<string,unknown>));
+}
+
+export async function markSourceVideoCompleted(sourceVideoId:string){
+  const s=getSupabase();
+  if(!s)throw new Error("Supabase 尚未连接。");
+  const {data:{user},error:userError}=await s.auth.getUser();
+  if(userError)throw userError;
+  if(!user)throw new Error("请先登录 CookingApp。");
+  const {error}=await s
+    .from("source_videos")
+    .update({workflow_status:"completed",updated_at:new Date().toISOString()})
+    .eq("id",sourceVideoId)
+    .eq("owner_id",user.id);
+  if(error)throw error;
+}
