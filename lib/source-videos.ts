@@ -19,6 +19,15 @@ function mapSource(row:Record<string,unknown>):SourceVideo{
   };
 }
 
+async function requireUser(){
+  const s=getSupabase();
+  if(!s)throw new Error("Supabase 尚未连接。");
+  const {data:{user},error}=await s.auth.getUser();
+  if(error)throw error;
+  if(!user)throw new Error("请先登录 CookingApp。");
+  return {s,user};
+}
+
 export async function loadPendingSourceVideos():Promise<SourceVideo[]>{
   const s=getSupabase();
   if(!s)return [];
@@ -36,15 +45,22 @@ export async function loadPendingSourceVideos():Promise<SourceVideo[]>{
 }
 
 export async function markSourceVideoCompleted(sourceVideoId:string){
-  const s=getSupabase();
-  if(!s)throw new Error("Supabase 尚未连接。");
-  const {data:{user},error:userError}=await s.auth.getUser();
-  if(userError)throw userError;
-  if(!user)throw new Error("请先登录 CookingApp。");
+  const {s,user}=await requireUser();
   const {error}=await s
     .from("source_videos")
     .update({workflow_status:"completed",updated_at:new Date().toISOString()})
     .eq("id",sourceVideoId)
     .eq("owner_id",user.id);
+  if(error)throw error;
+}
+
+export async function discardPendingSourceVideo(sourceVideoId:string){
+  const {s,user}=await requireUser();
+  const {error}=await s
+    .from("source_videos")
+    .delete()
+    .eq("id",sourceVideoId)
+    .eq("owner_id",user.id)
+    .eq("workflow_status","pending");
   if(error)throw error;
 }
