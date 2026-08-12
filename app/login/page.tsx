@@ -20,6 +20,10 @@ function safeNext(){
   return value.startsWith("/")&&!value.startsWith("//")?value:"/";
 }
 
+function isLocalHostname(hostname:string){
+  return hostname==="localhost"||hostname==="127.0.0.1"||hostname==="::1";
+}
+
 export default function LoginPage(){
   const router=useRouter();
   const searchParams=useSearchParams();
@@ -33,6 +37,8 @@ export default function LoginPage(){
   const mode=searchParams.get("mode")==="recovery"?"recovery":selectedMode;
   const [message,setMessage]=useState("");
   const [busy,setBusy]=useState(false);
+  const [localDev,setLocalDev]=useState(false);
+  const [environmentChecked,setEnvironmentChecked]=useState(false);
   const [turnstileSiteKey,setTurnstileSiteKey]=useState<string|null>(null);
   const [turnstileChecked,setTurnstileChecked]=useState(false);
   const [captchaToken,setCaptchaToken]=useState("");
@@ -40,9 +46,11 @@ export default function LoginPage(){
   const widgetId=useRef<string|undefined>(undefined);
   const widgetMode=useRef<string|undefined>(undefined);
   const [resendCountdown,setResendCountdown]=useState(0);
+  const captchaRequired=environmentChecked&&!localDev&&mode!=="recovery";
+  const captchaReady=!captchaRequired||Boolean(turnstileSiteKey&&captchaToken);
 
   const renderCaptcha=useCallback(()=>{
-    if(mode==="recovery"||!turnstileSiteKey||!captchaRef.current||!window.turnstile)return;
+    if(localDev||mode==="recovery"||!turnstileSiteKey||!captchaRef.current||!window.turnstile)return;
     if(widgetId.current&&widgetMode.current!==mode){window.turnstile.remove?.(widgetId.current);widgetId.current=undefined;setCaptchaToken("");}
     if(widgetId.current)return;
     widgetId.current=window.turnstile.render(captchaRef.current,{
@@ -52,15 +60,20 @@ export default function LoginPage(){
       "error-callback":()=>setCaptchaToken(""),
     });
     widgetMode.current=mode;
-  },[mode,turnstileSiteKey]);
+  },[localDev,mode,turnstileSiteKey]);
 
   useEffect(()=>{
+    const local=isLocalHostname(window.location.hostname);
+    setLocalDev(local);
+    setEnvironmentChecked(true);
+    if(local){setTurnstileChecked(true);return;}
     getTurnstileSiteKey().then(key=>{setTurnstileSiteKey(key);setTurnstileChecked(true);});
   },[]);
   useEffect(()=>{
+    if(localDev)return;
     if(mode!=="recovery")renderCaptcha();
     else if(widgetId.current){window.turnstile?.remove?.(widgetId.current);widgetId.current=undefined;widgetMode.current=undefined;setCaptchaToken("");}
-  },[mode,renderCaptcha]);
+  },[localDev,mode,renderCaptcha]);
   useEffect(()=>{
     if(resendCountdown<=0)return;
     const timer=window.setInterval(()=>setResendCountdown(value=>Math.max(0,value-1)),1000);
@@ -68,35 +81,41 @@ export default function LoginPage(){
   },[resendCountdown]);
 
   const resetCaptcha=()=>{
+    if(localDev)return;
     if(widgetId.current&&window.turnstile){window.turnstile.reset(widgetId.current);setCaptchaToken("");}
   };
+  const requireCaptcha=()=>{
+    if(!captchaRequired)return true;
+    if(turnstileSiteKey&&captchaToken)return true;
+    setMessage("请先完成人机验证。");
+    return false;
+  };
+  const captchaOptions=()=>localDev?{}:{captchaToken};
   const friendlyMailError=(error:{message:string;status?:number;code?:string}|null,action:"注册"|"重发"|"找回")=>{
     if(!error)return "";
     if(error.status===429||error.code==="over_email_send_rate_limit"||/rate limit/i.test(error.message))return "邮件发送次数已达到 Supabase 当前限额，请稍后再试；正式开放多人注册前需要配置自定义 SMTP。";
-    if(/captcha/i.test(error.message))return "人机验证已过期，请重新勾选后再试。";
+    if(/captcha/i.test(error.message))return localDev?"开发 Supabase 仍启用了 CAPTCHA。请在开发项目的 Auth → Bot and Abuse Protection 中关闭 CAPTCHA，再重新测试。":"人机验证已过期，请重新勾选后再试。";
     if(/signups not allowed/i.test(error.message))return "注册通道暂未开放，请稍后再试。";
     return `${action}邮件暂时无法发送，请稍后再试。`;
   };
 
   const signIn=async(e:React.FormEvent)=>{
     e.preventDefault();setBusy(true);setMessage("");
-    if(!turnstileSiteKey||!captchaToken){setMessage("请先完成人机验证。");setBusy(false);return;}
+    if(!requireCaptcha()){setBusy(false);return;}
     const s=await connectSupabase();
     if(!s){setMessage("当前站点尚未读取到 Supabase 配置，请稍后重试。");setBusy(false);return;}
-    const {error}=await s.auth.signInWithPassword({email,password,options:{captchaToken}});
+    const {error}=await s.auth.signInWithPassword({email,password,...(localDev?{}:{options:{captchaToken}})});
     resetCaptcha();
-    if(error){setMessage("账号邮箱或密码不正确。没有账号可以先注册；忘记密码可使用下方的找回入口。");setBusy(false);return;}
+    if(error){setMessage(/captcha/i.test(error.message)&&localDev?"开发 Supabase 仍启用了 CAPTCHA，请先在开发项目关闭 CAPTCHA。":"账号邮箱或密码不正确。没有账号可以先注册；忘记密码可使用下方的找回入口。");setBusy(false);return;}
     router.replace(safeNext());
   };
 
   const sendRecovery=async(e:React.FormEvent)=>{
     e.preventDefault();setBusy(true);setMessage("");
-    if(!turnstileSiteKey||!captchaToken){setMessage("请先完成人机验证。");setBusy(false);return;}
+    if(!requireCaptcha()){setBusy(false);return;}
     const s=await connectSupabase();
     if(!s){setMessage("当前站点尚未读取到 Supabase 配置，请稍后重试。");setBusy(false);return;}
-    // The production origin is already allowlisted in Supabase. The provider
-    // turns the PASSWORD_RECOVERY event into the local password form route.
-    const {error}=await s.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin,captchaToken});
+    const {error}=await s.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin,...captchaOptions()});
     resetCaptcha();
     setMessage(error?friendlyMailError(error,"找回"):"如果这是已登记的账号邮箱，密码重置邮件会发送到该邮箱。请打开最新邮件中的链接。");
     setBusy(false);
@@ -106,8 +125,7 @@ export default function LoginPage(){
     e.preventDefault();setMessage("");
     if(signupPassword.length<12){setMessage("密码至少需要12个字符。");return;}
     if(signupPassword!==signupConfirmation){setMessage("两次输入的密码不一致。");return;}
-    if(!turnstileSiteKey){setMessage("注册保护尚未完成配置，请稍后再试。");return;}
-    if(!captchaToken){setMessage("请先完成人机验证。");return;}
+    if(!requireCaptcha())return;
     setBusy(true);
     try{
       const s=await connectSupabase();
@@ -115,12 +133,9 @@ export default function LoginPage(){
       const {data,error}=await s.auth.signUp({
         email,
         password:signupPassword,
-        options:{emailRedirectTo:window.location.origin,captchaToken},
+        options:{emailRedirectTo:window.location.origin,...captchaOptions()},
       });
-      if(error){
-        setMessage(friendlyMailError(error,"注册"));
-        return;
-      }
+      if(error){setMessage(friendlyMailError(error,"注册"));return;}
       setMessage(data.session
         ? "账号创建成功，正在进入 CookingApp…"
         : "注册确认邮件已发送。请打开最新邮件完成验证，再返回 CookingApp 登录。");
@@ -137,12 +152,12 @@ export default function LoginPage(){
   const resendSignupConfirmation=async(e:React.FormEvent)=>{
     e.preventDefault();setMessage("");
     if(resendCountdown>0){setMessage(`请等待 ${resendCountdown} 秒后再重新发送。`);return;}
-    if(!captchaToken){setMessage("请先完成人机验证。");return;}
+    if(!requireCaptcha())return;
     setBusy(true);
     try{
       const s=await connectSupabase();
       if(!s){setMessage("当前站点尚未读取到 Supabase 配置，请稍后重试。");return;}
-      const {error}=await s.auth.resend({type:"signup",email,options:{emailRedirectTo:window.location.origin,captchaToken}});
+      const {error}=await s.auth.resend({type:"signup",email,options:{emailRedirectTo:window.location.origin,...captchaOptions()}});
       setMessage(error?friendlyMailError(error,"重发"):"注册确认邮件已重新发送。请检查收件箱和垃圾邮件；同一邮箱至少间隔60秒再试。");
       if(!error)setResendCountdown(60);
     }catch{
@@ -174,16 +189,17 @@ export default function LoginPage(){
     }
   };
 
-  const captchaBox=mode==="recovery"?null:turnstileSiteKey
+  const captchaBox=mode==="recovery"||localDev?null:turnstileSiteKey
     ?<div ref={captchaRef}/>
     :turnstileChecked
       ?<div className="notice">账号保护尚未完成配置，当前不能提交。</div>
       :<div className="notice">正在加载账号保护…</div>;
 
   return <div className="auth-page">
-    {turnstileSiteKey&&<Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={renderCaptcha}/>}
+    {!localDev&&turnstileSiteKey&&<Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={renderCaptcha}/>}
     <div className="auth-card">
       <div className="auth-brand"><span className="brand-mark">♨</span><span><strong>CookingApp</strong><small>我的做菜知识库</small></span></div>
+      {localDev&&<div className="notice" style={{marginBottom:16,background:"var(--leaf-soft)",color:"var(--leaf)"}}><b>开发环境</b>：localhost 已跳过 Cloudflare Turnstile。开发 Supabase 项目也需要关闭 CAPTCHA；正式网站仍保持人机验证。</div>}
       {mode==="login"&&<>
         <p className="eyebrow">WELCOME BACK</p><h1>登录 CookingApp</h1>
         <p className="subtitle">使用你的 CookingApp 账号邮箱和密码。这里不需要 ChatGPT、GitHub 或 Supabase Dashboard 账号。</p>
@@ -191,7 +207,7 @@ export default function LoginPage(){
           <div className="field"><label>账号邮箱</label><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com" autoComplete="username"/></div>
           <div className="field"><label>密码</label><input required type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password"/></div>
           {captchaBox}
-          <button disabled={busy||!turnstileSiteKey||!captchaToken} className="btn btn-primary">{busy?"正在登录…":"登录 CookingApp"}</button>
+          <button disabled={busy||!environmentChecked||!captchaReady} className="btn btn-primary">{busy?"正在登录…":"登录 CookingApp"}</button>
         </form>
         <button className="btn btn-secondary auth-register-action" onClick={()=>{setSelectedMode("signup");setMessage("")}}>没有账号？注册新账号</button>
         <button className="auth-link auth-link-secondary" onClick={()=>{setSelectedMode("confirm");setMessage("")}}>注册后没收到确认邮件？</button>
@@ -206,7 +222,7 @@ export default function LoginPage(){
           <div className="field"><label>密码</label><input required minLength={12} type="password" value={signupPassword} onChange={e=>setSignupPassword(e.target.value)} autoComplete="new-password"/><small>至少12个字符，建议使用密码管理器保存。</small></div>
           <div className="field"><label>再次输入密码</label><input required minLength={12} type="password" value={signupConfirmation} onChange={e=>setSignupConfirmation(e.target.value)} autoComplete="new-password"/></div>
           {captchaBox}
-          <button disabled={busy||!turnstileSiteKey||!captchaToken} className="btn btn-primary">{busy?"正在创建…":"创建账号"}</button>
+          <button disabled={busy||!environmentChecked||!captchaReady} className="btn btn-primary">{busy?"正在创建…":"创建账号"}</button>
         </form>
         <div className="notice signup-privacy-note"><b>数据默认私密</b><br/>新账号只会看到自己的空白知识库，不会看到管理者的14道菜。</div>
         <button className="auth-link auth-link-secondary" onClick={()=>{setSelectedMode("login");setMessage("")}}>已有账号？返回登录</button>
@@ -217,7 +233,7 @@ export default function LoginPage(){
         <form onSubmit={resendSignupConfirmation} className="auth-form">
           <div className="field"><label>注册邮箱</label><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/></div>
           {captchaBox}
-          <button disabled={busy||!turnstileSiteKey||!captchaToken||resendCountdown>0} className="btn btn-primary">{busy?"正在发送…":resendCountdown>0?`${resendCountdown} 秒后可重发`:"重新发送注册确认邮件"}</button>
+          <button disabled={busy||!environmentChecked||!captchaReady||resendCountdown>0} className="btn btn-primary">{busy?"正在发送…":resendCountdown>0?`${resendCountdown} 秒后可重发`:"重新发送注册确认邮件"}</button>
         </form>
         <button className="auth-link" onClick={()=>{setSelectedMode("login");setMessage("")}}>确认完成后返回登录</button>
       </>}
@@ -227,7 +243,7 @@ export default function LoginPage(){
         <form onSubmit={sendRecovery} className="auth-form">
           <div className="field"><label>账号邮箱</label><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/></div>
           {captchaBox}
-          <button disabled={busy||!turnstileSiteKey||!captchaToken} className="btn btn-primary">{busy?"正在发送…":"发送密码重置邮件"}</button>
+          <button disabled={busy||!environmentChecked||!captchaReady} className="btn btn-primary">{busy?"正在发送…":"发送密码重置邮件"}</button>
         </form>
         <button className="auth-link" onClick={()=>{setSelectedMode("login");setMessage("")}}>返回账号密码登录</button>
       </>}
