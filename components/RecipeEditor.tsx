@@ -9,10 +9,13 @@ const blank:Recipe={id:"",title:"",summary:"",emoji:"🍳",color:"linear-gradien
 const ingredientUnits=["g","kg","mg","ml","L","勺","小勺","大勺","茶匙","汤匙","圈","瓶盖","杯","碗","个","颗","枚","只","根","瓣","片","段","块","条","把","撮","少许","适量"];
 
 export function RecipeEditor({initial}:{initial?:Recipe}) {
-  const [recipe,setRecipe]=useState<Recipe>(initial||blank); const [saved,setSaved]=useState(false); const {saveRecipe,recipes}=useCooking();
+  const [recipe,setRecipe]=useState<Recipe>(initial?{...initial,visibility:"private"}:blank);
+  const [saved,setSaved]=useState(false);
+  const {saveRecipe,recipes}=useCooking();
   const tagSuggestions=useMemo(()=>[...new Set(recipes.flatMap(item=>item.tags))],[recipes]);
   const update=<K extends keyof Recipe>(key:K,value:Recipe[K])=>setRecipe(r=>({...r,[key]:value}));
-  const submit=(e:React.FormEvent)=>{e.preventDefault(); const id=recipe.id||`${Date.now()}-${recipe.title.replace(/\s+/g,"-").slice(0,24)}`; saveRecipe({...recipe,id,updatedAt:new Date().toISOString().slice(0,10),tags:recipe.tags.map(tag=>tag.trim()).filter(Boolean)}); setSaved(true); setTimeout(()=>window.location.assign(`/recipes/${id}`),450);};
+  const submit=(e:React.FormEvent)=>{e.preventDefault();const id=recipe.id||`${Date.now()}-${recipe.title.replace(/\s+/g,"-").slice(0,24)}`;saveRecipe({...recipe,id,visibility:"private",updatedAt:new Date().toISOString().slice(0,10),tags:recipe.tags.map(tag=>tag.trim()).filter(Boolean)});setSaved(true);setTimeout(()=>window.location.assign(`/recipes/${id}`),450);};
+
   return <form onSubmit={submit} className="two-col">
     <datalist id="recipe-ingredient-unit-options">{ingredientUnits.map(unit=><option value={unit} key={unit}/>)}</datalist>
     <section className="panel"><h2>基本信息</h2><div className="form-grid">
@@ -27,7 +30,7 @@ export function RecipeEditor({initial}:{initial?:Recipe}) {
     <div className="divider"/><div className="section-head"><h2>步骤</h2><button type="button" className="btn btn-secondary" onClick={()=>update("steps",[...recipe.steps,{id:crypto.randomUUID(),instruction:""}])}>＋ 添加</button></div>
     {recipe.steps.map((step,index)=><div className="array-row step-row" key={step.id}><span className="step-no">{index+1}</span><textarea aria-label={`步骤 ${index+1}`} value={step.instruction} onChange={e=>update("steps",recipe.steps.map((x,i)=>i===index?{...x,instruction:e.target.value}:x))} placeholder="写下具体操作、火候和判断标准"/><input aria-label="分钟" type="number" min="0" value={step.minutes||""} onChange={e=>update("steps",recipe.steps.map((x,i)=>i===index?{...x,minutes:Number(e.target.value)||undefined}:x))} placeholder="分钟"/><button type="button" className="icon-btn" onClick={()=>update("steps",recipe.steps.filter((_,i)=>i!==index))}>×</button></div>)}
     </section>
-    <aside><div className="panel" style={{position:"sticky",top:96}}><h2>我的版本</h2><div className="field"><label>本次版本说明</label><textarea value={recipe.versionNote} onChange={e=>update("versionNote",e.target.value)} placeholder="例如：糖减半；最后提高温度上色"/></div><div className="field" style={{marginTop:14}}><label>可见范围</label><select value={recipe.visibility} onChange={e=>update("visibility",e.target.value as Recipe["visibility"])}><option value="private">仅自己</option><option value="public">公开只读</option></select></div><div className="notice" style={{marginTop:16}}>用量、温度、无麸质和替代品如果没有确认，请保留为空或写明“待核验”，不要根据视频标题猜测。</div><button className="btn btn-primary" style={{width:"100%",marginTop:18}} type="submit">保存菜谱</button></div></aside>
+    <aside><div className="panel" style={{position:"sticky",top:96}}><h2>我的版本</h2><div className="field"><label>本次版本说明</label><textarea value={recipe.versionNote} onChange={e=>update("versionNote",e.target.value)} placeholder="例如：糖减半；最后提高温度上色"/></div><div className="notice" style={{marginTop:16}}><b>私人原稿</b><br/>保存只会更新你自己的菜谱。需要进入公开菜谱库时，请保存后在菜谱详情页提交“申请公开”，由管理员审核通过后发布快照。</div><div className="notice" style={{marginTop:12}}>用量、温度、无麸质和替代品如果没有确认，请保留为空或写明“待核验”，不要根据视频标题猜测。</div><button className="btn btn-primary" style={{width:"100%",marginTop:18}} type="submit">保存菜谱</button></div></aside>
     {saved&&<div className="toast">已保存，正在打开菜谱…</div>}
   </form>;
 }
