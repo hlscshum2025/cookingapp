@@ -49,7 +49,6 @@ export function CookingProvider({ children }: { children: React.ReactNode }) {
     let loadedUserId:string|null=null;
     let loadingUserId:string|null=null;
     let unsubscribe:(()=>void)|undefined;
-
     Object.values(KEYS).forEach(key=>localStorage.removeItem(key));
 
     const start=async()=>{
@@ -62,32 +61,32 @@ export function CookingProvider({ children }: { children: React.ReactNode }) {
       }
 
       const handleSession=async(session:Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"])=>{
-      const current=++request;
-      if(!session){
-        if(!active)return;
-        loadedUserId=null;
-        setRecipes([]);setLogs([]);setIngredients([]);setImportJobs([]);setSourceVideos([]);
-        setIsDemo(false);setAuthenticated(false);setAuthResolved(true);setCloudError("");setCloudStatus("signed_out");setReady(true);
-        return;
-      }
-      setAuthenticated(true);setAuthResolved(true);
-      if(loadedUserId===session.user.id||loadingUserId===session.user.id)return;
-      loadingUserId=session.user.id;
-      setCloudStatus("loading");setCloudError("");
-      try{
-        const cloud=await loadCloudData(session.user.id);
-        if(!active||current!==request||!cloud)return;
-        setRecipes(cloud.recipes);setLogs(cloud.logs);setIngredients(cloud.ingredients);setImportJobs(cloud.importJobs);setSourceVideos(cloud.sourceVideos);
-        loadedUserId=session.user.id;
-        setIsDemo(false);setCloudStatus("connected");
-      }catch(e){
-        if(!active||current!==request)return;
-        setRecipes([]);setLogs([]);setIngredients([]);setImportJobs([]);setSourceVideos([]);
-        setCloudError(e instanceof Error?e.message:"云端数据读取失败");setCloudStatus("error");
-      }finally{
-        if(loadingUserId===session.user.id)loadingUserId=null;
-        if(active&&current===request)setReady(true);
-      }
+        const current=++request;
+        if(!session){
+          if(!active)return;
+          loadedUserId=null;
+          setRecipes([]);setLogs([]);setIngredients([]);setImportJobs([]);setSourceVideos([]);
+          setIsDemo(false);setAuthenticated(false);setAuthResolved(true);setCloudError("");setCloudStatus("signed_out");setReady(true);
+          return;
+        }
+        setAuthenticated(true);setAuthResolved(true);
+        if(loadedUserId===session.user.id||loadingUserId===session.user.id)return;
+        loadingUserId=session.user.id;
+        setCloudStatus("loading");setCloudError("");
+        try{
+          const cloud=await loadCloudData(session.user.id);
+          if(!active||current!==request||!cloud)return;
+          setRecipes(cloud.recipes);setLogs(cloud.logs);setIngredients(cloud.ingredients);setImportJobs(cloud.importJobs);setSourceVideos(cloud.sourceVideos);
+          loadedUserId=session.user.id;
+          setIsDemo(false);setCloudStatus("connected");
+        }catch(e){
+          if(!active||current!==request)return;
+          setRecipes([]);setLogs([]);setIngredients([]);setImportJobs([]);setSourceVideos([]);
+          setCloudError(e instanceof Error?e.message:"云端数据读取失败");setCloudStatus("error");
+        }finally{
+          if(loadingUserId===session.user.id)loadingUserId=null;
+          if(active&&current===request)setReady(true);
+        }
       };
 
       const resolveInitialSession=(session:Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"])=>{
@@ -100,14 +99,8 @@ export function CookingProvider({ children }: { children: React.ReactNode }) {
           location.replace("/login?mode=recovery");
           return;
         }
-        if(event==="INITIAL_SESSION"){
-          window.setTimeout(()=>resolveInitialSession(session),0);
-          return;
-        }
-        if(event==="SIGNED_OUT"){
-          window.setTimeout(()=>void handleSession(null),0);
-          return;
-        }
+        if(event==="INITIAL_SESSION"){window.setTimeout(()=>resolveInitialSession(session),0);return;}
+        if(event==="SIGNED_OUT"){window.setTimeout(()=>void handleSession(null),0);return;}
         if(event==="SIGNED_IN")window.setTimeout(()=>void handleSession(session),0);
       });
       supabase.auth.getSession().then(({data})=>resolveInitialSession(data.session));
@@ -116,53 +109,41 @@ export function CookingProvider({ children }: { children: React.ReactNode }) {
     void start();
     return()=>{active=false;unsubscribe?.();};
   },[]);
+
   useEffect(() => { if(ready&&isDemo) localStorage.setItem(KEYS.recipes,JSON.stringify(recipes)); },[recipes,ready,isDemo]);
   useEffect(() => { if(ready&&isDemo) localStorage.setItem(KEYS.logs,JSON.stringify(logs)); },[logs,ready,isDemo]);
   useEffect(() => { if(ready&&isDemo) localStorage.setItem(KEYS.ingredients,JSON.stringify(ingredients)); },[ingredients,ready,isDemo]);
 
   const refreshCloudData = useCallback(async()=>{
-    const s=getSupabase();
-    if(!s)return;
-    const {data:{user}}=await s.auth.getUser();
-    if(!user)return;
-    const cloud=await loadCloudData(user.id);
-    if(!cloud)return;
+    const s=getSupabase();if(!s)return;
+    const {data:{user}}=await s.auth.getUser();if(!user)return;
+    const cloud=await loadCloudData(user.id);if(!cloud)return;
     setRecipes(cloud.recipes);setLogs(cloud.logs);setIngredients(cloud.ingredients);setImportJobs(cloud.importJobs);setSourceVideos(cloud.sourceVideos);
     setIsDemo(false);setCloudError("");setCloudStatus("connected");setReady(true);
   },[]);
 
-  const saveRecipe = useCallback((recipe: Recipe) => { setRecipes(old => {
-    const exists = old.some(item => item.id === recipe.id);
-    return exists ? old.map(item => item.id === recipe.id ? recipe : item) : [recipe,...old];
-  }); persistRecipe(recipe).catch(e=>setCloudError(e.message)); },[]);
+  const saveRecipe = useCallback((recipe: Recipe) => { setRecipes(old => old.some(item=>item.id===recipe.id)?old.map(item=>item.id===recipe.id?recipe:item):[recipe,...old]); persistRecipe(recipe).catch(e=>setCloudError(e.message)); },[]);
   const deleteRecipe = useCallback((id:string) => { setRecipes(old=>old.filter(r=>r.id!==id)); setLogs(old=>old.filter(l=>l.recipeId!==id)); removeCloudRecipe(id).catch(e=>setCloudError(e.message)); },[]);
   const addLog = useCallback((log:CookingLog) => {setLogs(old=>[log,...old]);persistLog(log).catch(e=>setCloudError(e.message));},[]);
   const saveIngredient = useCallback((item:IngredientMapping) => {setIngredients(old=>old.some(i=>i.id===item.id)?old.map(i=>i.id===item.id?item:i):[item,...old]);persistIngredient(item).catch(e=>setCloudError(e.message));},[]);
   const importVideos = useCallback(async(videos:NormalizedFavoriteVideo[],metadata:{collectionId?:string;fileName?:string;skipped?:number}) => {
     try{
       const cloudResult=await importBilibiliFavorites(videos,metadata);
-      if(!cloudResult)throw new Error("来源导入需要已连接并登录 Supabase；不会再退回本地空菜谱占位模式。");
-      const s=getSupabase();
-      const {data:{user}}=await s!.auth.getUser();
-      if(user){
-        const cloud=await loadCloudData(user.id);
-        if(cloud){
-          setRecipes(cloud.recipes);setImportJobs(cloud.importJobs);setSourceVideos(cloud.sourceVideos);
-          setIsDemo(false);setCloudStatus("connected");
-        }
+      if(cloudResult){
+        const s=getSupabase();const {data:{user}}=await s!.auth.getUser();
+        if(user){const cloud=await loadCloudData(user.id);if(cloud){setRecipes(cloud.recipes);setImportJobs(cloud.importJobs);setSourceVideos(cloud.sourceVideos);setIsDemo(false);setCloudStatus("connected");}}
+        return{...cloudResult,total:cloudResult.total+(metadata.skipped||0),skipped:cloudResult.skipped+(metadata.skipped||0)};
       }
-      return {...cloudResult,total:cloudResult.total+(metadata.skipped||0),skipped:cloudResult.skipped+(metadata.skipped||0)};
-    }catch(e){
-      setCloudError(e instanceof Error?e.message:"云端导入失败");
-      setCloudStatus("error");
-      throw e;
-    }
+    }catch(e){setCloudError(e instanceof Error?e.message:"云端导入失败");setCloudStatus("error");throw e;}
+    // No-Supabase fallback never creates recipes: JSON import is source-only.
+    const items:ImportResult["items"]=videos.map(video=>({externalId:video.bvid,title:video.title,status:"processed"}));
+    const jobId=crypto.randomUUID(),now=new Date().toISOString(),result:ImportResult={jobId,mode:"local",total:videos.length+(metadata.skipped||0),added:videos.length,duplicates:0,failed:0,skipped:metadata.skipped||0,items};
+    setImportJobs(old=>[{id:jobId,fileName:metadata.fileName,sourceCollectionId:metadata.collectionId,status:"completed",total:result.total,added:result.added,duplicates:0,failed:0,skipped:result.skipped,createdAt:now,finishedAt:now},...old]);
+    return result;
   },[]);
   const resetDemo = useCallback(() => { setRecipes(demoRecipes); setLogs(demoLogs); setIngredients(demoIngredients); },[]);
   const value=useMemo(()=>({recipes,logs,ingredients,importJobs,sourceVideos,ready,authResolved,authenticated,isDemo,cloudStatus,cloudError,saveRecipe,deleteRecipe,addLog,saveIngredient,importVideos,refreshCloudData,resetDemo}),[recipes,logs,ingredients,importJobs,sourceVideos,ready,authResolved,authenticated,isDemo,cloudStatus,cloudError,saveRecipe,deleteRecipe,addLog,saveIngredient,importVideos,refreshCloudData,resetDemo]);
   return <CookingContext.Provider value={value}>{children}</CookingContext.Provider>;
 }
 
-export function useCooking() {
-  const value=useContext(CookingContext); if(!value) throw new Error("useCooking must be used within CookingProvider"); return value;
-}
+export function useCooking() { const value=useContext(CookingContext); if(!value) throw new Error("useCooking must be used within CookingProvider"); return value; }
