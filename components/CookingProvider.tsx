@@ -2,7 +2,6 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { demoIngredients, demoLogs, demoRecipes } from "@/lib/demo-data";
-import { recipeFromFavoriteVideo } from "@/lib/bilibili";
 import type { CookingLog, ImportJobSummary, ImportResult, IngredientMapping, NormalizedFavoriteVideo, Recipe, SourceVideo } from "@/lib/types";
 import { connectSupabase, getSupabase, importBilibiliFavorites, loadCloudData, persistIngredient, persistLog, persistRecipe, removeCloudRecipe } from "@/lib/supabase";
 
@@ -51,8 +50,6 @@ export function CookingProvider({ children }: { children: React.ReactNode }) {
     let loadingUserId:string|null=null;
     let unsubscribe:(()=>void)|undefined;
 
-    // The hosted app is cloud-only. Never leave private cloud records in the
-    // browser's demo cache after sign-out, session expiry, or a config error.
     Object.values(KEYS).forEach(key=>localStorage.removeItem(key));
 
     const start=async()=>{
@@ -144,14 +141,23 @@ export function CookingProvider({ children }: { children: React.ReactNode }) {
   const importVideos = useCallback(async(videos:NormalizedFavoriteVideo[],metadata:{collectionId?:string;fileName?:string;skipped?:number}) => {
     try{
       const cloudResult=await importBilibiliFavorites(videos,metadata);
-      if(cloudResult){const s=getSupabase();const {data:{user}}=await s!.auth.getUser();if(user){const cloud=await loadCloudData(user.id);if(cloud){setRecipes(cloud.recipes);setImportJobs(cloud.importJobs);setSourceVideos(cloud.sourceVideos);setIsDemo(false);setCloudStatus("connected");}}return{...cloudResult,total:cloudResult.total+(metadata.skipped||0),skipped:cloudResult.skipped+(metadata.skipped||0)};}
-    }catch(e){setCloudError(e instanceof Error?e.message:"云端导入失败");setCloudStatus("error");throw e;}
-    const existing=new Set(recipes.map(r=>r.source?.bvid).filter(Boolean));const items:ImportResult["items"]=[];const additions:Recipe[]=[];
-    videos.forEach(video=>{if(existing.has(video.bvid)){items.push({externalId:video.bvid,title:video.title,status:"duplicate"});return;}existing.add(video.bvid);additions.push(recipeFromFavoriteVideo(video));items.push({externalId:video.bvid,title:video.title,status:"processed"});});
-    setRecipes(old=>[...additions.reverse(),...old]);
-    const jobId=crypto.randomUUID(),now=new Date().toISOString(),result:ImportResult={jobId,mode:"local",total:videos.length+(metadata.skipped||0),added:additions.length,duplicates:items.filter(i=>i.status==="duplicate").length,failed:0,skipped:metadata.skipped||0,items};
-    setImportJobs(old=>[{id:jobId,fileName:metadata.fileName,sourceCollectionId:metadata.collectionId,status:"completed",total:result.total,added:result.added,duplicates:result.duplicates,failed:0,skipped:result.skipped,createdAt:now,finishedAt:now},...old]);return result;
-  },[recipes]);
+      if(!cloudResult)throw new Error("来源导入需要已连接并登录 Supabase；不会再退回本地空菜谱占位模式。");
+      const s=getSupabase();
+      const {data:{user}}=await s!.auth.getUser();
+      if(user){
+        const cloud=await loadCloudData(user.id);
+        if(cloud){
+          setRecipes(cloud.recipes);setImportJobs(cloud.importJobs);setSourceVideos(cloud.sourceVideos);
+          setIsDemo(false);setCloudStatus("connected");
+        }
+      }
+      return {...cloudResult,total:cloudResult.total+(metadata.skipped||0),skipped:cloudResult.skipped+(metadata.skipped||0)};
+    }catch(e){
+      setCloudError(e instanceof Error?e.message:"云端导入失败");
+      setCloudStatus("error");
+      throw e;
+    }
+  },[]);
   const resetDemo = useCallback(() => { setRecipes(demoRecipes); setLogs(demoLogs); setIngredients(demoIngredients); },[]);
   const value=useMemo(()=>({recipes,logs,ingredients,importJobs,sourceVideos,ready,authResolved,authenticated,isDemo,cloudStatus,cloudError,saveRecipe,deleteRecipe,addLog,saveIngredient,importVideos,refreshCloudData,resetDemo}),[recipes,logs,ingredients,importJobs,sourceVideos,ready,authResolved,authenticated,isDemo,cloudStatus,cloudError,saveRecipe,deleteRecipe,addLog,saveIngredient,importVideos,refreshCloudData,resetDemo]);
   return <CookingContext.Provider value={value}>{children}</CookingContext.Provider>;
