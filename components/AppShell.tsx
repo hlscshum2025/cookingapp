@@ -24,25 +24,12 @@ const findNav=(href:string)=>nav.find(item=>item[0]===href)!;
 const mobile=[findNav("/tags"),findNav("/imports"),findNav("/ingredients"),findNav("/translations"),findNav("/costs")];
 const mobileHrefs=new Set(mobile.map(([href])=>href));
 const mobileMore=nav.filter(([href])=>!mobileHrefs.has(href));
-const topLevelHrefs=new Set(nav.map(([href])=>href));
-
-function parentFor(pathname:string){
-  if(topLevelHrefs.has(pathname))return null;
-  const parts=pathname.split("/").filter(Boolean);
-  if(!parts.length)return null;
-  // Recipe edit/cook pages should return to their recipe detail first.
-  if(parts[0]==="recipes"&&parts.length>=3)return `/${parts.slice(0,-1).join("/")}`;
-  // Recipe detail/new and future feature children return to their feature root.
-  if(parts.length>=2)return `/${parts[0]}`;
-  return "/";
-}
 
 export function AppShell({children}:{children:React.ReactNode}) {
   const pathname=usePathname(); const router=useRouter(); const {authResolved,authenticated,cloudStatus}=useCooking();
   const [moreOpen,setMoreOpen]=useState(false);
   const active=(href:string)=>href==="/"?pathname===href:pathname.startsWith(href);
   const statusLabel={loading:"正在检查连接",unconfigured:"Supabase 未配置",signed_out:"Supabase 待登录",connected:"Supabase 已连接",error:"Supabase 连接异常"}[cloudStatus];
-  const parentHref=parentFor(pathname);
   useEffect(()=>{
     if(cloudStatus==="signed_out"&&pathname!=="/login")router.replace(`/login?next=${encodeURIComponent(pathname)}`);
   },[cloudStatus,pathname,router]);
@@ -72,7 +59,6 @@ export function AppShell({children}:{children:React.ReactNode}) {
     <main className="content">
       <header className="topbar"><Link className="brand" href="/" style={{margin:0}}><span className="brand-mark">♨</span><span><strong>CookingApp</strong></span></Link><span className="topbar-title">把收藏变成真正会做的菜</span><div className="topbar-actions"><span className="status-pill">{statusLabel}</span><Link className="avatar" href="/settings" aria-label="打开设置">越</Link></div></header>
       {refreshing&&<div className="sync-banner" role="status"><span/>正在后台同步最新菜谱；页面可以先使用。</div>}
-      {parentHref&&<div style={{maxWidth:1180,margin:"14px auto -4px",padding:"0 4px"}}><Link href={parentHref} className="btn btn-secondary" style={{padding:"8px 12px",fontSize:13}}>← 返回上一层</Link></div>}
       {children}
     </main>
     {moreOpen&&<div className="mobile-more-layer">
