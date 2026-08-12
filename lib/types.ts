@@ -58,6 +58,28 @@ export type Recipe = {
   updatedAt: string;
 };
 
+export type PublicationStatus = "pending" | "approved" | "rejected";
+
+export type PublicRecipe = {
+  recipeId: string;
+  publicationRequestId: string;
+  publishedAt: string;
+  recipe: Recipe;
+};
+
+export type PublicationRequest = {
+  id: string;
+  recipeId: string;
+  ownerId: string;
+  title: string;
+  summary: string;
+  status: PublicationStatus;
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  recipe: Recipe;
+};
+
 export type IngredientMapping = {
   id: string;
   zh: string;
