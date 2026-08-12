@@ -1,3 +1,8 @@
+.recipe-card-shell {
+  position: relative;
+  height: 100%;
+}
+
 .recipe-card {
   display: flex;
   flex-direction: column;
@@ -49,8 +54,121 @@
   flex-wrap: nowrap;
   align-items: flex-start;
   overflow: hidden;
+  padding-right: 48px;
 }
 
 .recipe-body > .tag-row .tag {
   flex: 0 0 auto;
+}
+
+.recipe-cart-add {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 4;
+  min-width: 40px;
+  height: 34px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 5px 16px rgba(35,50,42,.12);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-weight: 800;
+}
+
+.recipe-cart-add.selected {
+  background: var(--leaf-soft);
+  color: var(--leaf);
+  border-color: rgba(47,104,79,.3);
+}
+
+.recipe-cart-float {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 80;
+}
+
+.recipe-cart-button {
+  width: 58px;
+  height: 58px;
+  border: 0;
+  border-radius: 50%;
+  background: #2f684f;
+  color: white;
+  box-shadow: 0 12px 30px rgba(35,50,42,.25);
+  cursor: pointer;
+  font-size: 24px;
+  position: relative;
+}
+
+.recipe-cart-button > b {
+  position: absolute;
+  right: -3px;
+  top: -5px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #d95f43;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  border: 2px solid white;
+}
+
+.recipe-cart-popover {
+  width: min(360px, calc(100vw - 28px));
+  max-height: min(520px, 68vh);
+  overflow: auto;
+  background: var(--panel, #fffdf8);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 18px 48px rgba(35,50,42,.22);
+  margin-bottom: 10px;
+}
+
+.recipe-cart-list {
+  display: grid;
+  gap: 8px;
+}
+
+.recipe-cart-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.recipe-cart-list span {
+  min-width: 0;
+}
+
+.recipe-cart-list small {
+  display: block;
+  margin-top: 3px;
+}
+
+@media (max-width: 760px) {
+  .recipe-cart-float {
+    right: 14px;
+    bottom: 78px;
+  }
+  .recipe-cart-button {
+    width: 52px;
+    height: 52px;
+    font-size: 21px;
+  }
+  .recipe-cart-popover {
+    max-height: 56vh;
+  }
 }
