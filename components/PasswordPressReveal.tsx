@@ -25,12 +25,15 @@ export function PasswordPressReveal(){
       });
       const show=()=>{input.type="text";button.style.opacity="1";};
       const hide=()=>{input.type="password";button.style.opacity="0.68";};
-      button.addEventListener("pointerdown",event=>{event.preventDefault();button.setPointerCapture?.(event.pointerId);show();});
+      button.addEventListener("pointerdown",event=>{
+        event.preventDefault();
+        button.setPointerCapture?.(event.pointerId);
+        show();
+      });
       button.addEventListener("pointerup",hide);
       button.addEventListener("pointercancel",hide);
-      button.addEventListener("pointerleave",hide);
+      button.addEventListener("lostpointercapture",hide);
       button.addEventListener("blur",hide);
-      window.addEventListener("pointerup",hide);
       parent.appendChild(button);
     };
     const scan=()=>document.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach(enhance);
