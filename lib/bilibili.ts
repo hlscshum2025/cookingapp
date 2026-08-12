@@ -86,7 +86,7 @@ export function recipeFromFavoriteVideo(video: NormalizedFavoriteVideo): Recipe 
     difficulty: "简单",
     status: "inbox",
     visibility: "private",
-    tags: ["待整理", "B站导入"],
+    tags: [],
     tools: [],
     source: {
       platform: "Bilibili",
