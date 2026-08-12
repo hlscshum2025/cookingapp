@@ -104,7 +104,7 @@ export function createBlankManualDraft(): ManualRecipeDraft {
       difficulty: "简单",
       status: "inbox" as RecipeStatus,
       visibility: "private",
-      tags: ["待核验"],
+      tags: [],
       tools: [],
       ingredients: [{ id: createManualRowId("ingredient"), name: "", amount: "", unit: "", evidence: defaultEvidence() }],
       steps: [{ id: createManualRowId("step"), instruction: "", evidence: defaultEvidence() }],
