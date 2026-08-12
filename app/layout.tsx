@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./card-layout.css";
 import { AppShell } from "@/components/AppShell";
 import { CookingProvider } from "@/components/CookingProvider";
 
