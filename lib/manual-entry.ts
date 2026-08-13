@@ -133,19 +133,18 @@ export function createDraftFromSource(source?:SourceVideo):ManualRecipeDraft {
   const platform=supportedPlatforms.has(source.platform as ManualSourcePlatform)
     ?source.platform as ManualSourcePlatform
     :"manual";
+  const extracted=source.extractedRecipe;
+  const ingredients=extracted?.ingredients.length
+    ?extracted.ingredients.map(item=>({id:createManualRowId("ingredient"),name:item.name,amount:item.amount,unit:item.unit,evidence:defaultEvidence()}))
+    :draft.recipe.ingredients;
+  const steps=extracted?.steps.length
+    ?extracted.steps.map(instruction=>({id:createManualRowId("step"),instruction,evidence:defaultEvidence()}))
+    :draft.recipe.steps;
   return {
     ...draft,
-    source:{
-      platform,
-      externalId:source.externalId,
-      url:source.url,
-      title:source.title,
-      uploaderName:source.uploaderName,
-      coverUrl:source.coverUrl,
-      description:source.description,
-      durationSeconds:source.durationSeconds,
-    },
-    recipe:{...draft.recipe,title:source.title,summary:source.description},
+    source:{platform,externalId:source.externalId,url:source.url,title:source.title,uploaderName:source.uploaderName,coverUrl:source.coverUrl,description:source.description,durationSeconds:source.durationSeconds},
+    recipe:{...draft.recipe,title:source.title,summary:extracted?.summary||source.description,ingredients,steps,versionNote:extracted?`${sourcePlatformLabel(platform)}页面自动读取草稿；食材、用量和步骤尚未人工核验。`:draft.recipe.versionNote},
+    review:{...draft.review,note:extracted?`已从${sourcePlatformLabel(platform)}公开页面自动读取 ${ingredients.length} 条食材、${steps.length} 个步骤；请对照原页面核验后再保存。`:""},
   };
 }
 
@@ -157,70 +156,18 @@ function trimOrUndefined(value?: string) {
 export function prepareManualEntryPayload(draft: ManualRecipeDraft): ManualEntryPayload {
   const title = draft.recipe.title.trim();
   if (!title) throw new Error("请先填写菜名。");
-
   const externalId = draft.source.externalId.trim();
-  if (draft.source.platform === "bilibili" && externalId && !/^BV[0-9A-Za-z]+$/.test(externalId)) {
-    throw new Error("B 站 BV 号格式不正确。");
-  }
-
+  if (draft.source.platform === "bilibili" && externalId && !/^BV[0-9A-Za-z]+$/.test(externalId)) throw new Error("B 站 BV 号格式不正确。");
   const candidateKey = draft.recipe.candidateKey.trim() || "main";
-  const ingredients = draft.recipe.ingredients
-    .filter((item) => item.name.trim())
-    .map((item) => ({ id: item.id, name: item.name.trim(), amount: item.amount.trim(), unit: item.unit.trim(), preparation: item.preparation, group: item.group }));
-  const steps = draft.recipe.steps
-    .filter((item) => item.instruction.trim())
-    .map((item) => ({ id: item.id, instruction: item.instruction.trim(), minutes: item.minutes, tip: item.tip }));
-
-  const url = trimOrUndefined(draft.source.url)
-    ?? (draft.source.platform==="bilibili"&&externalId ? `https://www.bilibili.com/video/${externalId}` : undefined);
+  const ingredients = draft.recipe.ingredients.filter((item) => item.name.trim()).map((item) => ({ id: item.id, name: item.name.trim(), amount: item.amount.trim(), unit: item.unit.trim(), preparation: item.preparation, group: item.group }));
+  const steps = draft.recipe.steps.filter((item) => item.instruction.trim()).map((item) => ({ id: item.id, instruction: item.instruction.trim(), minutes: item.minutes, tip: item.tip }));
+  const url = trimOrUndefined(draft.source.url) ?? (draft.source.platform==="bilibili"&&externalId ? `https://www.bilibili.com/video/${externalId}` : undefined);
   const sourceTitle = trimOrUndefined(draft.source.title) ?? title;
   const cueCount = draft.subtitle?.tracks.reduce((total, track) => total + track.cues.length, 0) ?? 0;
-
   return {
-    source: {
-      platform: draft.source.platform,
-      externalId: externalId || null,
-      url: url ?? null,
-      title: sourceTitle,
-      uploaderName: trimOrUndefined(draft.source.uploaderName) ?? null,
-      coverUrl: trimOrUndefined(draft.source.coverUrl) ?? null,
-      description: trimOrUndefined(draft.source.description) ?? null,
-      durationSeconds: draft.source.durationSeconds ?? null,
-    },
-    recipe: {
-      ...draft.recipe,
-      id: draft.recipe.id.trim(),
-      candidateKey,
-      title,
-      summary: draft.recipe.summary.trim(),
-      tags: draft.recipe.tags.map((item) => item.trim()).filter(Boolean),
-      tools: draft.recipe.tools.map((item) => item.trim()).filter(Boolean),
-      ingredients,
-      steps,
-      source: url ? {
-        platform: sourcePlatformLabel(draft.source.platform),
-        title: sourceTitle,
-        url,
-        bvid: draft.source.platform==="bilibili"?(externalId||undefined):undefined,
-        uploader: trimOrUndefined(draft.source.uploaderName),
-        coverUrl: trimOrUndefined(draft.source.coverUrl),
-        durationSeconds: draft.source.durationSeconds,
-      } : undefined,
-      contentReview: {
-        verificationStatus: draft.review.verificationStatus,
-        note: draft.review.note.trim(),
-        subtitleCueCount: cueCount,
-        subtitleLanguage: draft.subtitle?.tracks[0]?.language,
-        ingredientEvidence: draft.recipe.ingredients
-          .filter((item) => item.name.trim())
-          .map((item) => ({ ingredientId: item.id, evidence: item.evidence })),
-        stepEvidence: draft.recipe.steps
-          .filter((item) => item.instruction.trim())
-          .map((item) => ({ stepId: item.id, evidence: item.evidence })),
-      },
-      updatedAt: new Date().toISOString().slice(0, 10),
-    },
-    subtitle: draft.subtitle,
-    review: draft.review,
+    source:{platform:draft.source.platform,externalId:externalId||null,url:url??null,title:sourceTitle,uploaderName:trimOrUndefined(draft.source.uploaderName)??null,coverUrl:trimOrUndefined(draft.source.coverUrl)??null,description:trimOrUndefined(draft.source.description)??null,durationSeconds:draft.source.durationSeconds??null},
+    recipe:{...draft.recipe,id:draft.recipe.id.trim(),candidateKey,title,summary:draft.recipe.summary.trim(),tags:draft.recipe.tags.map((item)=>item.trim()).filter(Boolean),tools:draft.recipe.tools.map((item)=>item.trim()).filter(Boolean),ingredients,steps,source:url?{platform:sourcePlatformLabel(draft.source.platform),title:sourceTitle,url,bvid:draft.source.platform==="bilibili"?(externalId||undefined):undefined,uploader:trimOrUndefined(draft.source.uploaderName),coverUrl:trimOrUndefined(draft.source.coverUrl),durationSeconds:draft.source.durationSeconds}:undefined,contentReview:{verificationStatus:draft.review.verificationStatus,note:draft.review.note.trim(),subtitleCueCount:cueCount,subtitleLanguage:draft.subtitle?.tracks[0]?.language,ingredientEvidence:draft.recipe.ingredients.filter((item)=>item.name.trim()).map((item)=>({ingredientId:item.id,evidence:item.evidence})),stepEvidence:draft.recipe.steps.filter((item)=>item.instruction.trim()).map((item)=>({stepId:item.id,evidence:item.evidence}))},updatedAt:new Date().toISOString().slice(0,10)},
+    subtitle:draft.subtitle,
+    review:draft.review,
   };
 }
