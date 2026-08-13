@@ -60,21 +60,28 @@
   flex-wrap: nowrap;
   align-items: flex-start;
   overflow: hidden;
-  padding-right: 94px;
+  padding-right: 138px;
 }
 
 .recipe-body > .tag-row .tag {
   flex: 0 0 auto;
 }
 
-.recipe-cart-add,
-.recipe-like-add {
+.recipe-card-actions {
   position: absolute;
+  right: 12px;
   bottom: 12px;
   z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.recipe-cart-add,
+.recipe-like-add {
   min-width: 40px;
   height: 34px;
-  padding: 0 9px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(255,255,255,.94);
@@ -85,12 +92,10 @@
   justify-content: center;
   gap: 4px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
-.recipe-cart-add { right: 12px; }
-
 .recipe-like-add {
-  right: 62px;
   color: #a6414a;
 }
 
@@ -191,6 +196,12 @@
 }
 
 @media (max-width: 760px) {
+  .recipe-body > .tag-row {
+    padding-right: 126px;
+  }
+  .recipe-card-actions {
+    gap: 7px;
+  }
   .recipe-cart-float {
     right: 14px;
     bottom: 78px;
