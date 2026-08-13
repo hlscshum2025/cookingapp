@@ -131,6 +131,13 @@ export type NormalizedFavoriteVideo = {
   raw: FavoriteVideo;
 };
 
+export type ExtractedRecipeContent = {
+  summary?: string;
+  ingredients: Array<{ name: string; amount: string; unit: string }>;
+  steps: string[];
+  extractionMethod: "json_ld" | "page_text" | "meta";
+};
+
 export type SourceVideo = {
   id: string;
   platform: string;
@@ -144,6 +151,7 @@ export type SourceVideo = {
   durationSeconds?: number;
   publishedAt?: string;
   favoritedAt?: string;
+  extractedRecipe?: ExtractedRecipeContent;
   updatedAt: string;
 };
 
