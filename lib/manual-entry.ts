@@ -2,6 +2,7 @@ import type { Recipe, RecipeStatus, SourceVideo } from "./types";
 import type { EvidenceKind, SubtitleReviewDocument } from "./video-review";
 
 export type ReviewVerificationStatus = "unverified" | "ai_suggested" | "user_verified" | "source_verified";
+export type ManualSourcePlatform = "bilibili" | "xiachufang" | "xiaohongshu" | "generic_web" | "manual";
 
 export type ManualEvidence = {
   kind: EvidenceKind;
@@ -20,7 +21,7 @@ export type ManualStep = Recipe["steps"][number] & {
 
 export type ManualRecipeDraft = {
   source: {
-    platform: "bilibili" | "manual";
+    platform: ManualSourcePlatform;
     externalId: string;
     url: string;
     title: string;
@@ -75,6 +76,17 @@ export type ManualEntryResult = {
 };
 
 const defaultEvidence = (): ManualEvidence => ({ kind: "manual" });
+const supportedPlatforms = new Set<ManualSourcePlatform>(["bilibili","xiachufang","xiaohongshu","generic_web","manual"]);
+
+export function sourcePlatformLabel(platform:ManualSourcePlatform){
+  return ({
+    bilibili:"Bilibili",
+    xiachufang:"下厨房",
+    xiaohongshu:"小红书",
+    generic_web:"网页",
+    manual:"手动来源",
+  } as const)[platform];
+}
 
 export function createManualRowId(prefix: string) {
   const randomUuid = globalThis.crypto?.randomUUID?.();
@@ -118,10 +130,13 @@ export function createBlankManualDraft(): ManualRecipeDraft {
 export function createDraftFromSource(source?:SourceVideo):ManualRecipeDraft {
   const draft=createBlankManualDraft();
   if(!source)return draft;
+  const platform=supportedPlatforms.has(source.platform as ManualSourcePlatform)
+    ?source.platform as ManualSourcePlatform
+    :"manual";
   return {
     ...draft,
     source:{
-      platform:source.platform==="bilibili"?"bilibili":"manual",
+      platform,
       externalId:source.externalId,
       url:source.url,
       title:source.title,
@@ -157,7 +172,7 @@ export function prepareManualEntryPayload(draft: ManualRecipeDraft): ManualEntry
     .map((item) => ({ id: item.id, instruction: item.instruction.trim(), minutes: item.minutes, tip: item.tip }));
 
   const url = trimOrUndefined(draft.source.url)
-    ?? (externalId ? `https://www.bilibili.com/video/${externalId}` : undefined);
+    ?? (draft.source.platform==="bilibili"&&externalId ? `https://www.bilibili.com/video/${externalId}` : undefined);
   const sourceTitle = trimOrUndefined(draft.source.title) ?? title;
   const cueCount = draft.subtitle?.tracks.reduce((total, track) => total + track.cues.length, 0) ?? 0;
 
@@ -183,10 +198,10 @@ export function prepareManualEntryPayload(draft: ManualRecipeDraft): ManualEntry
       ingredients,
       steps,
       source: url ? {
-        platform: draft.source.platform === "bilibili" ? "Bilibili" : "手动来源",
+        platform: sourcePlatformLabel(draft.source.platform),
         title: sourceTitle,
         url,
-        bvid: externalId || undefined,
+        bvid: draft.source.platform==="bilibili"?(externalId||undefined):undefined,
         uploader: trimOrUndefined(draft.source.uploaderName),
         coverUrl: trimOrUndefined(draft.source.coverUrl),
         durationSeconds: draft.source.durationSeconds,
