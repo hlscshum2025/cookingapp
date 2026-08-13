@@ -1,4 +1,17 @@
-# CookingApp 第二版发布与验收状态
+# CookingApp 旧版发布清单入口
+
+本文件的文件名属于 V1 历史，但后期内容已经混入 V2。自 2026-08-13 起冻结，不再作为当前任务来源。
+
+- V1 结项与技术经验：[`00_v1_technical_experience.md`](./00_v1_technical_experience.md)
+- V2 当前任务与发布门禁：[`02_v2_workboard.md`](./02_v2_workboard.md)
+- 全生命周期路线图：[`01_product_roadmap.md`](./01_product_roadmap.md)
+- 问题反馈与调整：[`99_feedback_and_adjustments.md`](./99_feedback_and_adjustments.md)
+
+以下内容是 2026-08-12 的历史快照，不再更新。
+
+---
+
+# CookingApp 第二版发布与验收状态（历史快照）
 
 更新时间：2026-08-12。当前正式站已绑定自定义域名；业务数据由 Supabase Auth + RLS 保护。第二版采用“来源待办 → 手工整理 → 保存菜谱 → 做菜日志”的主流程；自动转写、OCR 和批量 AI 整理继续放到第三版。
 

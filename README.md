@@ -152,4 +152,7 @@ docs/                   产品、数据库与开发规划（原仓库保留）
 - [最新后续路线图](docs/roadmap.md)：按云端验收、部署、首批内容和 V2 分阶段推进。
 - [前 10 个视频试导入审计](docs/first-10-import-audit.md)：真实 JSON 抽样结果、字段缺口与需人工核验项。
 - [成本、准备时间与多人厨房调度设计](docs/cost-time-scheduling-design.md)：V2 成本/时间模型与 V3 调度算法。
-- [第一版发布剩余工作](docs/v1_release_checklist.md)：按 P0/P1 罗列真实内容、隐私、登录、手机端和域名验收。
+- [00｜V1 技术经验路线图](docs/00_v1_technical_experience.md)：记录从 0 到第一版的研发经验、范围调整与注意事项。
+- [01｜全生命周期产品路线图](docs/01_product_roadmap.md)：记录已完成、未来、延期、替代和放弃的功能。
+- [02｜V2 当前工作任务表](docs/02_v2_workboard.md)：只记录当前第二版的实际任务、状态和发布门禁。
+- [99｜问题反馈与调整记录](docs/99_feedback_and_adjustments.md)：记录反馈、原因、调整、验证和后续。

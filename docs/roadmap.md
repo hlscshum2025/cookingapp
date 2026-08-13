@@ -1,4 +1,17 @@
-# CookingApp 后续路线图
+# CookingApp 路线图旧入口
+
+本文件自 2026-08-13 起不再作为活动路线图维护，保留路径是为了兼容历史链接。
+
+- 全生命周期路线图：[`01_product_roadmap.md`](./01_product_roadmap.md)
+- 当前 V2 工作任务：[`02_v2_workboard.md`](./02_v2_workboard.md)
+- V1 技术经验复盘：[`00_v1_technical_experience.md`](./00_v1_technical_experience.md)
+- 问题反馈与调整：[`99_feedback_and_adjustments.md`](./99_feedback_and_adjustments.md)
+
+以下内容是 2026-08-12 的历史快照，不再更新。
+
+---
+
+# CookingApp 后续路线图（历史快照）
 
 更新日期：2026-08-12
 
