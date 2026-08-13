@@ -19,6 +19,15 @@ test("识别小红书分享文本",()=>{
   assert.equal(source.uploaderName,"厨房同学");
 });
 
+test("识别小红书单行复制分享并提取真正标题",()=>{
+  const source=parseSharedRecipeSource("85 【GB留子日常必备手作桃花酥 - 苹果理学的羁绊 | 小红书 - 你的生活兴趣社区】 😍 https://www.xiaohongshu.com/discovery/item/69a98700000000002202c2cc?source=webshare&xsec_token=test");
+  assert.equal(source.platform,"xiaohongshu");
+  assert.equal(source.externalId,"69a98700000000002202c2cc");
+  assert.equal(source.title,"GB留子日常必备手作桃花酥");
+  assert.equal(source.uploaderName,"苹果理学的羁绊");
+  assert.equal(source.url,"https://www.xiaohongshu.com/discovery/item/69a98700000000002202c2cc?source=webshare&xsec_token=test");
+});
+
 test("识别 Bilibili 单视频来源",()=>{
   const source=parseSharedRecipeSource("夏叔做饭 https://www.bilibili.com/video/BV1TEST12345");
   assert.equal(source.platform,"bilibili");
