@@ -64,6 +64,8 @@ export type PublicRecipe = {
   recipeId: string;
   publicationRequestId: string;
   publishedAt: string;
+  likeCount: number;
+  likedByMe: boolean;
   recipe: Recipe;
 };
 

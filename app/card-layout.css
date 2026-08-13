@@ -11,6 +11,12 @@
 
 .recipe-cover {
   flex: 0 0 150px;
+  background-size: cover;
+  background-position: center;
+}
+
+.recipe-cover.has-image {
+  background-repeat: no-repeat;
 }
 
 .recipe-body {
@@ -54,16 +60,16 @@
   flex-wrap: nowrap;
   align-items: flex-start;
   overflow: hidden;
-  padding-right: 48px;
+  padding-right: 94px;
 }
 
 .recipe-body > .tag-row .tag {
   flex: 0 0 auto;
 }
 
-.recipe-cart-add {
+.recipe-cart-add,
+.recipe-like-add {
   position: absolute;
-  right: 12px;
   bottom: 12px;
   z-index: 4;
   min-width: 40px;
@@ -77,8 +83,34 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   font-weight: 800;
+}
+
+.recipe-cart-add { right: 12px; }
+
+.recipe-like-add {
+  right: 62px;
+  color: #a6414a;
+}
+
+.recipe-like-add > span {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.recipe-like-add > b {
+  font-size: 12px;
+}
+
+.recipe-like-add.selected {
+  background: #fff0f1;
+  border-color: rgba(166,65,74,.28);
+}
+
+.recipe-like-add:disabled {
+  opacity: .58;
+  cursor: wait;
 }
 
 .recipe-cart-add.selected {

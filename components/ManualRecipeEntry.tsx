@@ -67,7 +67,7 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
   const clearLocalDraft=()=>{
     try{window.localStorage.removeItem(storageKey);}catch{}
     setDraft(createDraftFromSource(initialSource));
-    setMessage("本机草稿已清空，已恢复为这个来源视频的初始内容。");
+    setMessage("本机草稿已清空，已恢复为这个来源的初始内容。");
   };
 
   const setSource = <K extends keyof ManualRecipeDraft["source"]>(key: K, value: ManualRecipeDraft["source"][K]) => {
@@ -128,22 +128,24 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
     }
   };
 
+  const isBilibili=draft.source.platform==="bilibili";
+
   return <form onSubmit={submit} className="manual-entry-layout">
     <datalist id="ingredient-unit-options">{ingredientUnits.map(unit=><option value={unit} key={unit}/>)}</datalist>
     <section className="manual-entry-main">
       <div className="notice manual-draft-notice"><b>自动草稿已开启。</b> 输入内容会保存在当前浏览器；收起录入区、切换 CookingApp 页面或误点外部链接后，再回来仍可继续。正式保存到云端后会清除这份本机草稿。</div>
 
       <div className="panel">
-        <div className="section-head"><div><p className="eyebrow">SOURCE</p><h2>来源视频与字幕</h2></div><span className={`badge ${draft.subtitle ? "" : "warn"}`}>{draft.subtitle ? `${draft.subtitle.tracks.reduce((sum, track) => sum + track.cues.length, 0)} 段字幕` : "字幕可选"}</span></div>
+        <div className="section-head"><div><p className="eyebrow">SOURCE</p><h2>来源与辅助资料</h2></div><span className={`badge ${draft.subtitle ? "" : "warn"}`}>{draft.subtitle ? `${draft.subtitle.tracks.reduce((sum, track) => sum + track.cues.length, 0)} 段字幕` : isBilibili?"字幕可选":"分享文本已保留"}</span></div>
         <div className="form-grid">
-          <div className="field"><label>来源类型</label><select value={draft.source.platform} onChange={(event) => setSource("platform", event.target.value as ManualRecipeDraft["source"]["platform"])}><option value="bilibili">Bilibili</option><option value="manual">无视频／手动来源</option></select></div>
-          <div className="field"><label>BV 号</label><input value={draft.source.externalId} onChange={(event) => setSource("externalId", event.target.value.trim())} placeholder="BV1…"/></div>
-          <div className="field full"><label>视频标题</label><input value={draft.source.title} onChange={(event) => setSource("title", event.target.value)} placeholder="原视频标题；可与菜名不同"/></div>
-          <div className="field full"><label>视频链接</label><input type="url" value={draft.source.url} onChange={(event) => setSource("url", event.target.value)} placeholder="留空时根据 BV 号生成"/></div>
-          <div className="field"><label>UP 主</label><input value={draft.source.uploaderName} onChange={(event) => setSource("uploaderName", event.target.value)}/></div>
-          <div className="field"><label>时长（秒）</label><input type="number" min="0" value={draft.source.durationSeconds ?? ""} onChange={(event) => setSource("durationSeconds", event.target.value ? Number(event.target.value) : undefined)}/></div>
-          <div className="field full"><label>来源说明</label><textarea value={draft.source.description} onChange={(event) => setSource("description", event.target.value)} placeholder="简介、画面信息或需要再次确认的地方"/></div>
-          <div className="field full"><label>AI 字幕 JSON</label><input type="file" accept="application/json,.json" onChange={(event) => importSubtitle(event.target.files?.[0])}/><small>原始 B 站 `body` 格式和 CookingApp 包装格式都可以。原始文件请先填写 BV 号。</small></div>
+          <div className="field"><label>来源类型</label><select value={draft.source.platform} onChange={(event) => setSource("platform", event.target.value as ManualRecipeDraft["source"]["platform"])}><option value="bilibili">Bilibili</option><option value="xiachufang">下厨房</option><option value="xiaohongshu">小红书</option><option value="generic_web">普通网页</option><option value="manual">无网页／手动来源</option></select></div>
+          <div className="field"><label>{isBilibili?"BV 号":"来源 ID"}</label><input value={draft.source.externalId} onChange={(event) => setSource("externalId", event.target.value.trim())} placeholder={isBilibili?"BV1…":"平台 ID 或自动生成的来源 ID"}/></div>
+          <div className="field full"><label>来源标题</label><input value={draft.source.title} onChange={(event) => setSource("title", event.target.value)} placeholder="原页面／视频标题；可与菜名不同"/></div>
+          <div className="field full"><label>来源链接</label><input type="url" value={draft.source.url} onChange={(event) => setSource("url", event.target.value)} placeholder={isBilibili?"留空时可根据 BV 号生成":"原始分享链接或菜谱网页地址"}/></div>
+          <div className="field"><label>作者／UP 主</label><input value={draft.source.uploaderName} onChange={(event) => setSource("uploaderName", event.target.value)}/></div>
+          {isBilibili&&<div className="field"><label>时长（秒）</label><input type="number" min="0" value={draft.source.durationSeconds ?? ""} onChange={(event) => setSource("durationSeconds", event.target.value ? Number(event.target.value) : undefined)}/></div>}
+          <div className="field full"><label>来源说明／分享文本</label><textarea value={draft.source.description} onChange={(event) => setSource("description", event.target.value)} placeholder="简介、分享文案、画面信息或需要再次确认的地方"/></div>
+          {isBilibili&&<div className="field full"><label>AI 字幕 JSON</label><input type="file" accept="application/json,.json" onChange={(event) => importSubtitle(event.target.files?.[0])}/><small>原始 B 站 `body` 格式和 CookingApp 包装格式都可以。原始文件请先填写 BV 号。</small></div>}
         </div>
       </div>
 
@@ -151,7 +153,7 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
         <p className="eyebrow">RECIPE</p><h2>菜谱正文</h2>
         <div className="form-grid">
           <div className="field full"><label>菜名 *</label><input required value={draft.recipe.title} onChange={(event) => setRecipe("title", event.target.value)} placeholder="例如：洋葱辣酸奶酱"/></div>
-          <div className="field full"><label>同一视频中的配方标识</label><input required value={draft.recipe.candidateKey} onChange={(event) => setRecipe("candidateKey", event.target.value)} placeholder="main、sauce-1…"/><small>同一视频包含多道菜时必须不同；再次保存同一标识会更新原记录。</small></div>
+          <div className="field full"><label>同一来源中的配方标识</label><input required value={draft.recipe.candidateKey} onChange={(event) => setRecipe("candidateKey", event.target.value)} placeholder="main、sauce-1…"/><small>同一来源包含多道菜时必须不同；再次保存同一标识会更新原记录。</small></div>
           <div className="field full"><label>摘要</label><textarea value={draft.recipe.summary} onChange={(event) => setRecipe("summary", event.target.value)}/></div>
           <div className="field"><label>份数</label><input type="number" min="1" value={draft.recipe.servings} onChange={(event) => setRecipe("servings", Number(event.target.value))}/></div>
           <div className="field"><label>总时间（分钟）</label><input type="number" min="0" value={draft.recipe.totalMinutes} onChange={(event) => setRecipe("totalMinutes", Number(event.target.value))}/></div>
@@ -183,9 +185,9 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
       <div className="panel" style={{ position: "sticky", top: 96 }}>
         <p className="eyebrow">REVIEW</p><h2>核验与保存</h2>
         <div className="field"><label>当前核验状态</label><select value={draft.review.verificationStatus} onChange={(event) => setDraft((current) => ({ ...current, review: { ...current.review, verificationStatus: event.target.value as ManualRecipeDraft["review"]["verificationStatus"] } }))}><option value="unverified">未核验</option><option value="ai_suggested">AI 建议</option><option value="source_verified">已对照来源</option><option value="user_verified">已人工确认</option></select></div>
-        <div className="field" style={{ marginTop: 14 }}><label>核验备注</label><textarea value={draft.review.note} onChange={(event) => setDraft((current) => ({ ...current, review: { ...current.review, note: event.target.value } }))} placeholder="例如：克数来自 00:12 的画面，字幕仍有错词"/></div>
+        <div className="field" style={{ marginTop: 14 }}><label>核验备注</label><textarea value={draft.review.note} onChange={(event) => setDraft((current) => ({ ...current, review: { ...current.review, note: event.target.value } }))} placeholder="例如：克数来自画面/原网页，仍有字段待核验"/></div>
         <div className="field" style={{ marginTop: 14 }}><label>版本说明</label><textarea value={draft.recipe.versionNote} onChange={(event) => setRecipe("versionNote", event.target.value)}/></div>
-        <div className="notice" style={{ marginTop: 16 }}>保存会在一次数据库事务中查重并写入来源视频、菜谱正文和来源版本。AI 字幕保留原始身份，不自动标记为人工确认。</div>
+        <div className="notice" style={{ marginTop: 16 }}>保存会在一次数据库事务中查重并写入来源、菜谱正文和来源版本。平台分享文本与 AI 字幕只作为核验依据，不自动标记为人工确认。</div>
         <div className="notice" style={{marginTop:12}}><b>本机草稿：</b>输入后约 0.25 秒自动保存。除非你点击“清空本机草稿”或正式保存成功，否则不会因为收起录入区或离开页面而清空。</div>
         {cloudStatus !== "connected" && <div className="notice" style={{ marginTop: 12, background: "#fbe5de", color: "#923c29" }}>当前不能写入云端。请先去<Link href="/login" style={{ textDecoration: "underline" }}>登录页面</Link>完成 CookingApp 登录。</div>}
         {error && <div className="notice" role="alert" style={{ marginTop: 12, background: "#fbe5de", color: "#923c29" }}>{error}</div>}
