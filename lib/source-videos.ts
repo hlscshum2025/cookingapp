@@ -3,6 +3,12 @@ import type { ImportedSourceDraft } from "./source-adapters";
 import { getSupabase } from "./supabase";
 
 function mapSource(row:Record<string,unknown>):SourceVideo{
+  const raw=row.raw_metadata&&typeof row.raw_metadata==="object"&&!Array.isArray(row.raw_metadata)
+    ?row.raw_metadata as Record<string,unknown>
+    :{};
+  const extracted=raw.extractedRecipe&&typeof raw.extractedRecipe==="object"
+    ?raw.extractedRecipe as SourceVideo["extractedRecipe"]
+    :undefined;
   return {
     id:String(row.id||""),
     platform:String(row.platform||""),
@@ -16,6 +22,7 @@ function mapSource(row:Record<string,unknown>):SourceVideo{
     durationSeconds:row.duration_seconds===null||row.duration_seconds===undefined?undefined:Number(row.duration_seconds),
     publishedAt:row.published_at?String(row.published_at):undefined,
     favoritedAt:row.favorited_at?String(row.favorited_at):undefined,
+    extractedRecipe:extracted,
     updatedAt:String(row.updated_at||""),
   };
 }
@@ -29,6 +36,8 @@ async function requireUser(){
   return {s,user};
 }
 
+const sourceSelect="id,platform,external_id,url,title,uploader_name,cover_url,description,availability,duration_seconds,published_at,favorited_at,raw_metadata,updated_at";
+
 export async function loadPendingSourceVideos():Promise<SourceVideo[]>{
   const s=getSupabase();
   if(!s)return [];
@@ -37,7 +46,7 @@ export async function loadPendingSourceVideos():Promise<SourceVideo[]>{
   if(!user)return [];
   const {data,error}=await s
     .from("source_videos")
-    .select("id,platform,external_id,url,title,uploader_name,cover_url,description,availability,duration_seconds,published_at,favorited_at,updated_at")
+    .select(sourceSelect)
     .eq("owner_id",user.id)
     .eq("workflow_status","pending")
     .order("updated_at",{ascending:false});
@@ -57,13 +66,19 @@ export async function saveSharedRecipeSource(source:ImportedSourceDraft):Promise
       url:source.url,
       title:source.title,
       uploader_name:source.uploaderName||null,
+      cover_url:source.coverUrl||null,
       description:source.description||null,
       availability:"available",
       workflow_status:"pending",
-      raw_metadata:{importMode:"shared_text",rawText:source.rawText,platformLabel:source.platformLabel},
+      raw_metadata:{
+        importMode:"shared_text",
+        rawText:source.rawText,
+        platformLabel:source.platformLabel,
+        extractedRecipe:source.extractedRecipe||null,
+      },
       updated_at:now,
     },{onConflict:"owner_id,platform,external_id"})
-    .select("id,platform,external_id,url,title,uploader_name,cover_url,description,availability,duration_seconds,published_at,favorited_at,updated_at")
+    .select(sourceSelect)
     .single();
   if(error)throw error;
   return mapSource(data as Record<string,unknown>);
