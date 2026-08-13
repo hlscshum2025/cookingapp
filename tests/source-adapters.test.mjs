@@ -28,6 +28,24 @@ test("识别小红书单行复制分享并提取真正标题",()=>{
   assert.equal(source.url,"https://www.xiaohongshu.com/discovery/item/69a98700000000002202c2cc?source=webshare&xsec_token=test");
 });
 
+test("识别小红书网页提取器 JSON 并拆出食材步骤",()=>{
+  const source=parseSharedRecipeSource(JSON.stringify({
+    schemaVersion:"cookingapp-xiaohongshu-page-1",
+    platform:"xiaohongshu",
+    noteId:"679938a9000000001800a6ed",
+    url:"https://www.xiaohongshu.com/discovery/item/679938a9000000001800a6ed",
+    title:"留子极简桃花酥",
+    author:"Please try again",
+    coverUrl:"https://example.com/cover.jpg",
+    pageText:"配料：\n酥皮 2袋\n椰子碎 200g\n黄油 100g\n奶粉 30g\n鸡蛋 5个\n1. 混合椰蓉馅\n2. 冷藏1小时\n3. 160度烤20分钟",
+  }));
+  assert.equal(source.browserExtracted,true);
+  assert.equal(source.externalId,"679938a9000000001800a6ed");
+  assert.equal(source.coverUrl,"https://example.com/cover.jpg");
+  assert.equal(source.extractedRecipe?.ingredients.length,5);
+  assert.equal(source.extractedRecipe?.steps.length,3);
+});
+
 test("识别 Bilibili 单视频来源",()=>{
   const source=parseSharedRecipeSource("夏叔做饭 https://www.bilibili.com/video/BV1TEST12345");
   assert.equal(source.platform,"bilibili");
