@@ -1,3 +1,5 @@
+import type { ExtractedRecipeContent } from "./types";
+
 export type ImportedSourceDraft={
   platform:"bilibili"|"xiachufang"|"xiaohongshu"|"generic_web";
   platformLabel:string;
@@ -6,27 +8,52 @@ export type ImportedSourceDraft={
   title:string;
   uploaderName:string;
   description:string;
+  coverUrl:string;
+  extractedRecipe?:ExtractedRecipeContent;
   rawText:string;
 };
 
-const urlPattern=/https?:\/\/[^\s<>'"，。；;）)]+/i;
+const urlPattern=/https?:\/\/[^\s<>'"“”‘’，。；;）)】\]]+/i;
 
 function cleanUrl(value:string){
   return value.trim().replace(/[）)\]】>,，。；;]+$/g,"");
 }
 
-function titleFromText(text:string,platformLabel:string){
-  const lines=text.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
-  const useful=lines.find(line=>{
-    if(/^https?:\/\//i.test(line))return false;
-    if(line.length>140)return false;
-    if(/复制.*打开|打开.*看看|分享.*链接|网页链接|^链接[:：]?$/i.test(line))return false;
-    return true;
-  });
-  return useful?.replace(/^【|】$/g,"").trim()||`${platformLabel} 待整理来源`;
+function cleanSharedTitle(value:string,platformLabel:string){
+  let title=value
+    .replace(/^[\s\d]+(?=[【\[])/,"")
+    .replace(/^[【\[]|[】\]]$/g,"")
+    .replace(/\s*[|｜]\s*(?:小红书|下厨房).*$/i,"")
+    .trim();
+  if(platformLabel==="小红书"){
+    const pieces=title.split(/\s+-\s+/).map(piece=>piece.trim()).filter(Boolean);
+    if(pieces.length>1&&pieces.at(-1)!.length<=40)title=pieces.slice(0,-1).join(" - ");
+  }
+  return title.slice(0,160).trim();
 }
 
-function authorFromText(text:string){
+function titleFromText(text:string,platformLabel:string){
+  const withoutUrl=text.replace(new RegExp(urlPattern.source,"gi")," ");
+  const bracket=withoutUrl.match(/[【\[]([^】\]]{2,180})[】\]]/);
+  if(bracket?.[1]){
+    const value=cleanSharedTitle(bracket[1],platformLabel);
+    if(value)return value;
+  }
+
+  const lines=withoutUrl
+    .split(/\r?\n/)
+    .map(line=>line.replace(/^\s*\d{1,4}\s+(?=\S)/,"").trim())
+    .filter(Boolean);
+  const useful=lines.find(line=>{
+    if(line.length>160)return false;
+    if(/复制.*打开|打开.*看看|分享.*链接|网页链接|^链接[:：]?$/i.test(line))return false;
+    if(/^http/i.test(line))return false;
+    return true;
+  });
+  return cleanSharedTitle(useful||"",platformLabel)||`${platformLabel} 待整理来源`;
+}
+
+function authorFromText(text:string,platformLabel:string){
   const patterns=[
     /(?:作者|UP主|博主|发布者)[:：]\s*([^\n]{1,60})/i,
     /@([^\s，,。]{1,40})/,
@@ -34,6 +61,13 @@ function authorFromText(text:string){
   for(const pattern of patterns){
     const match=text.match(pattern);
     if(match?.[1])return match[1].trim();
+  }
+
+  if(platformLabel==="小红书"){
+    const bracket=text.match(/[【\[]([^】\]]{2,180})[】\]]/)?.[1]||"";
+    const beforePlatform=bracket.replace(/\s*[|｜]\s*小红书.*$/i,"").trim();
+    const pieces=beforePlatform.split(/\s+-\s+/).map(piece=>piece.trim()).filter(Boolean);
+    if(pieces.length>1&&pieces.at(-1)!.length<=40)return pieces.at(-1)!;
   }
   return "";
 }
@@ -91,8 +125,9 @@ export function parseSharedRecipeSource(input:string):ImportedSourceDraft{
     externalId:stableExternalId(platform,url,explicitId),
     url,
     title,
-    uploaderName:authorFromText(rawText),
-    description:rawText===url?"":rawText.slice(0,4000),
+    uploaderName:authorFromText(rawText,platformLabel),
+    description:rawText===url?"":rawText.replace(url,"").replace(/\s{2,}/g," ").trim().slice(0,4000),
+    coverUrl:"",
     rawText,
   };
 }
