@@ -1,4 +1,5 @@
 import type { SourceVideo } from "./types";
+import type { ImportedSourceDraft } from "./source-adapters";
 import { getSupabase } from "./supabase";
 
 function mapSource(row:Record<string,unknown>):SourceVideo{
@@ -42,6 +43,30 @@ export async function loadPendingSourceVideos():Promise<SourceVideo[]>{
     .order("updated_at",{ascending:false});
   if(error)throw error;
   return (data||[]).map(row=>mapSource(row as Record<string,unknown>));
+}
+
+export async function saveSharedRecipeSource(source:ImportedSourceDraft):Promise<SourceVideo>{
+  const {s,user}=await requireUser();
+  const now=new Date().toISOString();
+  const {data,error}=await s
+    .from("source_videos")
+    .upsert({
+      owner_id:user.id,
+      platform:source.platform,
+      external_id:source.externalId,
+      url:source.url,
+      title:source.title,
+      uploader_name:source.uploaderName||null,
+      description:source.description||null,
+      availability:"available",
+      workflow_status:"pending",
+      raw_metadata:{importMode:"shared_text",rawText:source.rawText,platformLabel:source.platformLabel},
+      updated_at:now,
+    },{onConflict:"owner_id,platform,external_id"})
+    .select("id,platform,external_id,url,title,uploader_name,cover_url,description,availability,duration_seconds,published_at,favorited_at,updated_at")
+    .single();
+  if(error)throw error;
+  return mapSource(data as Record<string,unknown>);
 }
 
 export async function markSourceVideoCompleted(sourceVideoId:string){
