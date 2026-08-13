@@ -10,6 +10,7 @@ import type { ImportResult, SourceVideo } from "@/lib/types";
 
 type WorkspaceMode="source"|"json"|"automatic";
 const exporterUrl="https://github.com/hlscshum2025/cookingapp/blob/main/tools/bilibili-favorites-exporter/export-favorites.js";
+const platformLabel=(platform:string)=>({bilibili:"Bilibili",xiachufang:"下厨房",xiaohongshu:"小红书",generic_web:"网页"}[platform]||platform||"来源");
 
 function durationLabel(seconds?:number){
   if(!seconds)return "时长未知";
@@ -39,7 +40,7 @@ export function ImportWorkspace(){
       setPendingVideos(rows);
       setSelectedId(current=>rows.some(video=>video.id===current)?current:(rows[0]?.id||""));
     }catch(reason){
-      setError(reason instanceof Error?reason.message:"来源视频读取失败。");
+      setError(reason instanceof Error?reason.message:"来源读取失败。");
     }
   },[cloudStatus]);
 
@@ -49,11 +50,12 @@ export function ImportWorkspace(){
   const filteredVideos=useMemo(()=>{
     const query=search.trim().toLowerCase();
     if(!query)return pendingVideos;
-    return pendingVideos.filter(video=>[video.title,video.externalId,video.uploaderName].some(value=>value.toLowerCase().includes(query)));
+    return pendingVideos.filter(video=>[video.title,video.externalId,video.uploaderName,platformLabel(video.platform)].some(value=>value.toLowerCase().includes(query)));
   },[search,pendingVideos]);
   const selected=pendingVideos.find(video=>video.id===selectedId)??pendingVideos[0];
   const selectedVideos=prepared?.videos.slice(0,scope==="ten"?10:undefined)||[];
   const duplicates=selectedVideos.filter(video=>existing.has(video.bvid)).length;
+  const selectedIsBilibili=selected?.platform==="bilibili";
 
   const chooseVideo=(id:string)=>{setSelectedId(id);setManualOpen(false);setVideoCollapsed(false);};
   const startManual=()=>{if(selected){setManualOpen(true);setVideoCollapsed(false);window.setTimeout(()=>document.getElementById("manual-workspace")?.scrollIntoView({behavior:"smooth"}),0);}};
@@ -70,7 +72,7 @@ export function ImportWorkspace(){
   };
   const deleteSelected=async()=>{
     if(!selected)return;
-    if(!window.confirm(`确认从 CookingApp 来源待办中删除“${selected.title}”吗？\n\n这只删除 CookingApp 保存的来源元数据，不会删除 B 站原视频。以后再次导入同一收藏夹时，它仍可以重新进入待处理列表。`))return;
+    if(!window.confirm(`确认从 CookingApp 来源待办中删除“${selected.title}”吗？\n\n这只删除 CookingApp 保存的来源元数据，不会影响原平台内容。以后仍然可以再次导入这个链接。`))return;
     setDeleting(true);setError("");
     try{
       await discardPendingSourceVideo(selected.id);
@@ -83,13 +85,13 @@ export function ImportWorkspace(){
   const connectionNotice=cloudStatus==="unconfigured"?<> <b>Supabase 尚未配置：不会收到任何数据。</b></>:cloudStatus==="signed_out"?<> <b>CookingApp 尚未登录。</b> 请先 <Link href="/login"><u>完成邮箱登录</u></Link>。</>:cloudStatus==="error"?<> <b>Supabase 连接异常。</b> 请到“设置”查看详情。</>:null;
 
   return <div className="page">
-    <header className="page-head"><div><p className="eyebrow">IMPORT WORKSPACE</p><h1>导入中心</h1><p className="subtitle">JSON 只创建来源待办，不创建菜谱。手工整理并保存后才进入菜谱库；不需要的视频可以直接从待办中删除。</p></div><span className="badge">{pendingVideos.length} 条待处理</span></header>
+    <header className="page-head"><div><p className="eyebrow">IMPORT WORKSPACE</p><h1>导入中心</h1><p className="subtitle">B站 JSON、下厨房、小红书和普通菜谱网页都先进入来源待办；手工整理并保存后才进入菜谱库。</p></div><span className="badge">{pendingVideos.length} 条待处理</span></header>
     {connectionNotice&&<div className="notice" style={{marginBottom:18,background:"#fff1cc",color:"#6d4d00"}}>{connectionNotice}</div>}
     {error&&<div className="notice" role="alert" style={{marginBottom:18,background:"#fbe5de",color:"#923c29"}}>{error}</div>}
 
     <nav className="import-mode-nav" aria-label="导入方式">
       <button className={mode==="source"?"active":""} onClick={()=>setMode("source")}><b>1</b><span>待处理来源与手工录入<small>保存菜谱后自动移出</small></span></button>
-      <button className={mode==="json"?"active":""} onClick={()=>setMode("json")}><b>2</b><span>导入 JSON<small>只加入来源待办</small></span></button>
+      <button className={mode==="json"?"active":""} onClick={()=>setMode("json")}><b>2</b><span>B站收藏夹 JSON<small>批量加入来源待办</small></span></button>
       <button className={mode==="automatic"?"active":""} onClick={()=>setMode("automatic")}><b>3</b><span>一键自动导入<small>第三版再完善</small></span></button>
     </nav>
 
@@ -97,26 +99,30 @@ export function ImportWorkspace(){
       {pendingVideos.length?<div className="source-workspace">
         <aside className="panel source-browser">
           <div className="section-head" style={{marginTop:0}}><h2>待处理来源</h2><span className="badge">{filteredVideos.length}</span></div>
-          <input className="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="搜索标题、BV号或UP主" aria-label="搜索待处理来源视频"/>
+          <input className="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="搜索标题、平台、作者或来源ID" aria-label="搜索待处理来源"/>
           <div className="source-video-list">{filteredVideos.map(video=><button key={video.id} className={selected?.id===video.id?"active":""} onClick={()=>chooseVideo(video.id)}>
-            <span className="source-thumb">{video.coverUrl?<span className="source-thumb-image" style={{backgroundImage:`url(${JSON.stringify(video.coverUrl)})`}}/>:"▶"}</span>
-            <span><strong>{video.title}</strong><small>{video.externalId} · {video.uploaderName||"UP主未知"}</small></span>
+            <span className="source-thumb">{video.coverUrl?<span className="source-thumb-image" style={{backgroundImage:`url(${JSON.stringify(video.coverUrl)})`}}/>:<span style={{fontSize:12,fontWeight:800}}>{platformLabel(video.platform)}</span>}</span>
+            <span><strong>{video.title}</strong><small>{platformLabel(video.platform)} · {video.uploaderName||video.externalId}</small></span>
           </button>)}</div>
         </aside>
         {selected&&<section className={`source-review ${manualOpen?"floating-active":""}`}>
-          <div className={`panel source-review-card ${manualOpen?"is-floating":""} ${videoCollapsed?"is-collapsed":""}`}>
-            {manualOpen&&<div className="floating-video-head"><b>边看边录：{selected.title}</b><button type="button" onClick={()=>setVideoCollapsed(value=>!value)}>{videoCollapsed?"显示视频":"收起视频"}</button></div>}
-            <div className="video-frame" style={{maxWidth:920,marginInline:"auto"}}><iframe key={selected.externalId} title={`B站视频：${selected.title}`} src={`https://player.bilibili.com/player.html?bvid=${encodeURIComponent(selected.externalId)}&high_quality=1&autoplay=0&danmaku=0`} allow="fullscreen; picture-in-picture" allowFullScreen/></div>
-            <div className="source-detail-head"><div><p className="eyebrow">{selected.externalId}</p><h2>{selected.title}</h2><p className="subtitle">{selected.uploaderName||"UP主未知"} · {durationLabel(selected.durationSeconds)}</p></div><span className={`badge ${selected.availability==="available"?"":"warn"}`}>{selected.availability==="available"?"可访问":"需核验"}</span></div>
-            {selected.description&&<p className="source-description">{selected.description}</p>}
+          <div className={`panel source-review-card ${manualOpen&&selectedIsBilibili?"is-floating":""} ${videoCollapsed?"is-collapsed":""}`}>
+            <div className="source-actions" style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+              <a className="btn btn-secondary" href={selected.url} target="_blank" rel="noreferrer">打开{platformLabel(selected.platform)}原页面 ↗</a>
+              {manualOpen&&selectedIsBilibili&&<button type="button" className="btn btn-secondary" onClick={()=>setVideoCollapsed(value=>!value)}>{videoCollapsed?"显示视频":"收起视频"}</button>}
+            </div>
+            {manualOpen&&selectedIsBilibili&&<div className="floating-video-head"><b>边看边录：{selected.title}</b></div>}
+            {selectedIsBilibili?<div className="video-frame" style={{maxWidth:920,marginInline:"auto"}}><iframe key={selected.externalId} title={`B站视频：${selected.title}`} src={`https://player.bilibili.com/player.html?bvid=${encodeURIComponent(selected.externalId)}&high_quality=1&autoplay=0&danmaku=0`} allow="fullscreen; picture-in-picture" allowFullScreen/></div>:<div className="notice" style={{padding:20,marginBottom:16}}><b>{platformLabel(selected.platform)}来源</b><br/>该平台第一版不在 CookingApp 内嵌页面，避免登录、跳转和移动端兼容问题。点击上方“打开原页面”查看原内容，CookingApp 保留分享文本供你对照录入。</div>}
+            <div className="source-detail-head"><div><p className="eyebrow">{platformLabel(selected.platform)} · {selected.externalId}</p><h2>{selected.title}</h2><p className="subtitle">{selected.uploaderName||"作者未知"}{selectedIsBilibili?` · ${durationLabel(selected.durationSeconds)}`:""}</p></div><span className={`badge ${selected.availability==="available"?"":"warn"}`}>{selected.availability==="available"?"可访问":"需核验"}</span></div>
+            {selected.description&&<p className="source-description" style={{whiteSpace:"pre-wrap"}}>{selected.description}</p>}
             <div className="source-actions" style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               <button className="btn btn-primary" onClick={startManual}>进入手动录入 →</button>
               <button className="btn btn-danger" onClick={deleteSelected} disabled={deleting}>{deleting?"正在删除…":"删除这个来源"}</button>
             </div>
-            <div className="notice" style={{marginTop:16}}>保存手工菜谱后，对应来源会自动标记完成并从这里移出；菜谱仍保存原视频链接和 UP 主信息。如果这个视频不需要整理，可以直接删除这条来源待办。</div>
+            <div className="notice" style={{marginTop:16}}>保存手工菜谱后，对应来源会自动标记完成并从这里移出；菜谱仍保存原平台链接和作者信息。如果不需要整理，可以直接删除来源待办。</div>
           </div>
         </section>}
-      </div>:<div className="panel empty"><span>✓</span><h2>待处理来源已经清空</h2><p>已经保存成菜谱的来源会自动离开这里；不需要的来源可以删除。需要新增来源时继续导入 JSON 即可。</p><button className="btn btn-primary" onClick={()=>setMode("json")}>继续导入 JSON</button></div>}
+      </div>:<div className="panel empty"><span>✓</span><h2>待处理来源已经清空</h2><p>已经保存成菜谱的来源会自动离开这里。可以在页面上方粘贴下厨房、小红书或网页链接，也可以继续批量导入 B站 JSON。</p><button className="btn btn-primary" onClick={()=>setMode("json")}>导入 B站收藏夹 JSON</button></div>}
       {manualOpen&&selected&&<section id="manual-workspace" className="manual-workspace-section">
         <div className="section-head"><div><p className="eyebrow">MANUAL ENTRY</p><h2>手动录入：{selected.title}</h2><p className="subtitle">正式保存菜谱后，这条来源会自动标记完成；只有保存成功的菜谱才会进入菜谱库。</p></div><button className="btn btn-secondary" onClick={()=>setManualOpen(false)}>收起录入区</button></div>
         <ManualRecipeEntry key={selected.id} initialSource={selected}/>
