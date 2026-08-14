@@ -14,3 +14,13 @@ test("四份 SQL 的后两份检查脚本保持只读", async () => {
     assert.doesNotMatch(sql,/\b(insert|update|delete|alter|drop|create|truncate)\b/i);
   }
 });
+
+test("线上冰箱 migration 开启 owner-only RLS 且不授权 anon", async()=>{
+  const sql=await readFile(new URL("../supabase/migrations/202608140001_pantry_inventory.sql",import.meta.url),"utf8");
+  assert.match(sql,/alter table public\.pantry_items enable row level security/i);
+  assert.match(sql,/revoke all on public\.pantry_items from anon/i);
+  assert.match(sql,/for select\s+to authenticated\s+using \(\(select auth\.uid\(\)\) = owner_id\)/i);
+  assert.match(sql,/for insert\s+to authenticated\s+with check \(\(select auth\.uid\(\)\) = owner_id\)/i);
+  assert.match(sql,/for update\s+to authenticated[\s\S]+using \(\(select auth\.uid\(\)\) = owner_id\)[\s\S]+with check \(\(select auth\.uid\(\)\) = owner_id\)/i);
+  assert.match(sql,/for delete\s+to authenticated\s+using \(\(select auth\.uid\(\)\) = owner_id\)/i);
+});
