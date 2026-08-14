@@ -24,6 +24,7 @@
    - 最后才发布网页。
 4. **结构同步和业务数据迁移是两件事。** 不允许用 DEV 整库覆盖 PROD；Auth UUID、正式用户数据、Storage 文件必须独立处理。
 5. PROD 已存在而 DEV 缺失的结构也必须反向补到 DEV，避免双向漂移。
+6. DEV → PROD 业务数据迁移必须先 dry-run；已有 PROD 记录默认保留，不用 DEV 较旧数据覆盖正式数据。
 
 ## 当前结构状态
 
@@ -47,7 +48,42 @@
 |---|---|---|---|---|---|---|
 | 2026-08-11 | 补齐常用 owner / FK 查询索引：`cooking_logs_owner_cooked_idx`、`import_items_owner_idx`、`import_items_recipe_idx`、`import_items_source_video_idx`、`recipe_tags_owner_idx`、`recipe_tags_tag_idx`、`recipe_versions_owner_idx` | `20260811112654_add_missing_foreign_key_indexes.sql` | 2026-08-14 补齐 | 原已存在 | **已同步** | 之前出现 PROD 有、DEV 缺失的反向漂移；现已一致 |
 | 2026-08-13 | 公开菜谱点赞：`public_recipes.like_count`、`public_recipe_likes`、RLS、计数 Trigger / private Function | `202608130001_public_recipe_likes.sql` | 已验证 | 2026-08-14 补齐 | **已同步** | 网页点赞功能依赖此结构；未同步时不可发布对应前端 |
-| 2026-08-14 | 线上冰箱：`pantry_items`、owner-only RLS、账号级库存 | `202608140001_pantry_items.sql` | 已存在并验证 | 已存在并验证 | **已同步** | 业务数据独立；结构一致不代表库存数据相同 |
+| 2026-08-14 | 线上冰箱：`pantry_items`、owner-only RLS、账号级库存 | `202608130002_pantry_items.sql` | 已存在并验证 | 已存在并验证 | **已同步** | 业务数据独立；结构一致不代表库存数据相同 |
+
+## 2026-08-14 DEV → PROD 增量业务数据合并
+
+本次不是整库覆盖，而是按正式账号重新映射所有权后进行增量插入。
+
+### Dry-run 规则
+
+- DEV / PROD 账号按 email 对应，`owner_id` 使用 PROD Auth UUID；不复制 DEV Auth UUID。
+- `source_videos` 按 PROD 唯一约束去重；已有来源不更新。
+- 已存在的正式菜谱（例如已经在 PROD 编辑过的菜谱）以 PROD 为准，不用 DEV 较旧版本覆盖。
+- 只迁移 PROD 当前不存在的新菜谱及其版本。
+- 新导入批次与明细保留原业务关联；所有 recipe/source/job FK 在写入后复核。
+- 不迁移 Storage 二进制图片；本次新增数据不依赖新增 Storage 文件。
+
+### 实际结果
+
+| 对象 | 新增到 PROD | 处理说明 |
+|---|---:|---|
+| `source_videos` | 190 | 11 条 PROD 已有来源自动跳过；合并后主账号共有 201 条来源 |
+| `import_jobs` | 1 | 合并后主账号共有 5 个导入批次 |
+| `import_items` | 199 | 合并后主账号共有 239 条导入明细 |
+| `recipes` | 1 | 新增“雪碧黄瓜”；已有正式菜谱未覆盖 |
+| `recipe_versions` | 4 | 仅新增“雪碧黄瓜”的 4 个历史版本 |
+| `cooking_logs` | 0 | DEV 中旧日志在 PROD 已存在，因此跳过 |
+
+合并后回读结果：
+
+- 主账号：8 道菜、201 条来源、5 个导入批次、239 条导入明细、17 个菜谱版本、2 条做菜日志。
+- 另外三个 PROD 用户的业务数据数量未发生变化。
+- `import_items → recipes` 断链：0。
+- `import_items → source_videos` 断链：0。
+- `import_items → import_jobs` 断链：0。
+- “雪碧黄瓜”的 recipe ID 和 `document.id` 已重映射为 PROD 账号命名空间，且保留 4 个版本。
+- 临时 DEV 导出 / PROD 导入 Edge Function 已覆盖为 `410 retired` 且重新启用 JWT 验证。
+- 为迁移临时启用的 PROD `http` extension 已删除，没有作为永久数据库依赖保留。
 
 ## 发布前给 Work / 发布聊天的固定检查单
 
