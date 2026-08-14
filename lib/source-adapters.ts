@@ -1,5 +1,5 @@
 import type { ExtractedRecipeContent } from "./types";
-import { extractRecipeFromNoteText } from "./source-extractor";
+import { extractRecipeFromNoteText } from "./source-extractor.ts";
 
 export type ImportedSourceDraft={
   platform:"bilibili"|"xiachufang"|"xiaohongshu"|"generic_web";

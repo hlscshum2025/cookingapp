@@ -92,31 +92,31 @@ test("托管生产环境未登录时清空本地副本并统一进入登录页",
 });
 
 test("未登录导入会明确提示不写入 Supabase", async () => {
-  const source=await readFile(new URL("../app/imports/page.tsx",import.meta.url),"utf8");
+  const source=await readFile(new URL("../components/ImportWorkspace.tsx",import.meta.url),"utf8");
   assert.match(source,/Supabase 尚未配置：不会收到任何数据/);
   assert.match(source,/CookingApp 尚未登录/);
-  assert.match(source,/本机演示导入完成/);
+  assert.match(source,/来源导入完成/);
 });
 
 test("导入中心读取 source_videos 并串联播放与手工录入", async () => {
   const provider=await readFile(new URL("../components/CookingProvider.tsx",import.meta.url),"utf8");
   const supabase=await readFile(new URL("../lib/supabase.ts",import.meta.url),"utf8");
-  const imports=await readFile(new URL("../app/imports/page.tsx",import.meta.url),"utf8");
+  const imports=await readFile(new URL("../components/ImportWorkspace.tsx",import.meta.url),"utf8");
   assert.match(supabase,/from\("source_videos"\)\.select/);
   assert.match(provider,/sourceVideos/);
   assert.match(imports,/player\.bilibili\.com\/player\.html\?bvid=/);
-  assert.match(imports,/在 B 站打开原视频/);
-  assert.match(imports,/一键进入手动录入/);
+  assert.match(imports,/打开\{platformLabel\(selected\.platform\)\}原页面/);
+  assert.match(imports,/进入手动录入/);
   assert.match(imports,/initialSource=\{selected\}/);
   assert.match(imports,/source-review-card/);
   assert.match(imports,/is-floating/);
-  assert.match(imports,/一键自动导入暂时保留入口/);
+  assert.match(imports,/一键自动导入放到第三版/);
 });
 
 test("设置页区分环境配置、用户登录和当前数据模式并可设置密码", async () => {
   const source=await readFile(new URL("../app/settings/page.tsx",import.meta.url),"utf8");
   assert.match(source,/站点配置不可用/);
-  assert.match(source,/已读取 Supabase 配置/);
+  assert.match(source,/已连接 Supabase/);
   assert.match(source,/设置账号登录密码/);
   assert.match(source,/updateUser\(\{password:newPassword\}\)/);
   assert.match(source,/finally\{setPasswordBusy\(false\);\}/);
