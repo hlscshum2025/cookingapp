@@ -12,12 +12,13 @@ export const BACKUP_TABLES = [
   "import_items",
   "tags",
   "recipe_tags",
+  "pantry_items",
 ] as const;
 
 export type BackupTable = typeof BACKUP_TABLES[number];
 export type BackupTables = Record<BackupTable, Record<string, unknown>[]>;
 export type CookingBackup = {
-  schemaVersion: "cookingapp-backup-3";
+  schemaVersion: "cookingapp-backup-4";
   exportedAt: string;
   tables: BackupTables;
   storage: { included: false; bucket: string; note: string };
@@ -78,7 +79,7 @@ export async function createCloudBackup():Promise<CookingBackup>{
     tables[table]=await readOwnedRows(s,table,user.id);
   }
   return {
-    schemaVersion:"cookingapp-backup-3",
+    schemaVersion:"cookingapp-backup-4",
     exportedAt:new Date().toISOString(),
     tables,
     storage:{included:false,bucket:"recipe-images",note:"图片文件需从 Supabase Storage 单独备份；业务备份只保存数据库记录与图片路径。"},
@@ -131,7 +132,7 @@ export function parseBackupText(text:string,fileName:string):{backup:CookingBack
   if(format==="json"){
     const raw=JSON.parse(text) as Record<string,unknown>;
     if(!isRecord(raw)||!String(raw.schemaVersion||"").startsWith("cookingapp-backup-"))throw new Error("这不是 CookingApp 完整备份文件。");
-    backup={schemaVersion:"cookingapp-backup-3",exportedAt:String(raw.exportedAt||""),tables:normalizeTables(raw.tables),storage:{included:false,bucket:"recipe-images",note:"Storage 图片不包含在业务备份中。"}};
+    backup={schemaVersion:"cookingapp-backup-4",exportedAt:String(raw.exportedAt||""),tables:normalizeTables(raw.tables),storage:{included:false,bucket:"recipe-images",note:"Storage 图片不包含在业务备份中。"}};
   }else{
     const rows=parseCsvRows(text);
     if(rows[0]?.[0]!=="table"||rows[0]?.[1]!=="row_json")throw new Error("CSV 不是 CookingApp 备份包格式。");
@@ -142,7 +143,7 @@ export function parseBackupText(text:string,fileName:string):{backup:CookingBack
       if(!isRecord(parsed))throw new Error(`${tableName} 中存在无效记录。`);
       tables[tableName as BackupTable].push(parsed);
     }
-    backup={schemaVersion:"cookingapp-backup-3",exportedAt:"",tables,storage:{included:false,bucket:"recipe-images",note:"Storage 图片不包含在业务备份中。"}};
+    backup={schemaVersion:"cookingapp-backup-4",exportedAt:"",tables,storage:{included:false,bucket:"recipe-images",note:"Storage 图片不包含在业务备份中。"}};
   }
   const counts=Object.fromEntries(BACKUP_TABLES.map(table=>[table,backup.tables[table].length])) as Record<BackupTable,number>;
   const warnings:string[]=[];
@@ -151,8 +152,8 @@ export function parseBackupText(text:string,fileName:string):{backup:CookingBack
   return {backup,preview:{format,exportedAt:backup.exportedAt||undefined,totalRows:Object.values(counts).reduce((a,b)=>a+b,0),counts,warnings}};
 }
 
-const DELETE_ORDER:Exclude<BackupTable,"profiles">[]=["recipe_tags","import_items","cooking_logs","recipe_versions","tags","import_jobs","source_videos","recipes","ingredients"];
-const RESTORE_ORDER:BackupTable[]=["profiles","recipes","ingredients","source_videos","import_jobs","tags","recipe_versions","cooking_logs","import_items","recipe_tags"];
+const DELETE_ORDER:Exclude<BackupTable,"profiles">[]=["recipe_tags","import_items","cooking_logs","recipe_versions","tags","import_jobs","source_videos","recipes","ingredients","pantry_items"];
+const RESTORE_ORDER:BackupTable[]=["profiles","pantry_items","recipes","ingredients","source_videos","import_jobs","tags","recipe_versions","cooking_logs","import_items","recipe_tags"];
 
 function remapRow(table:BackupTable,row:Record<string,unknown>,userId:string){
   const next={...row};
@@ -182,9 +183,6 @@ export async function restoreCloudBackup(backup:CookingBackup,mode:RestoreMode){
   for(const table of RESTORE_ORDER){
     const rows=backup.tables[table].map(row=>remapRow(table,row,user.id));
     if(!rows.length)continue;
-    // Profiles have auth.users as their parent and use user id as the PK. All
-    // other business rows retain their original IDs so cross-table relations
-    // in a backup remain intact while owner_id is rebound to the current user.
     const {error}=await s.from(table).upsert(rows);
     if(error)throw new Error(`恢复 ${table} 失败：${error.message}`);
     restored[table]=rows.length;
