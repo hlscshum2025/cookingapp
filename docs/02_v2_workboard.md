@@ -1,6 +1,6 @@
 # 02｜CookingApp V2 当前工作任务表
 
-更新日期：2026-08-14  
+更新日期：2026-08-18  
 当前阶段：V1 已结项，V2 正在开发。  
 原则：这里只记录 V2 的实际工作、状态变化和验收结果；长期设想统一进入 [`01_product_roadmap.md`](./01_product_roadmap.md)。
 
@@ -47,7 +47,7 @@
 | V2-P1-05 | 通用链接/粘贴文本入口 | 已合入 main | 未识别平台仍保留原链接、原文和来源类型并进入手工录入。 |
 | V2-P1-06 | 来源证据与用量保真 | 待验收 | 原始用量不丢失；未知值不强制转克数；自动提取结果默认未核验。 |
 
-小红书当前边界：网页弹窗和 App deeplink只用于查看原内容与完成真人验证，CookingApp 不绕过验证码，不读取跨域窗口 DOM。视频自动转写/OCR 留到 V3。
+小红书当前边界：网页弹窗和 App deeplink只用于查看原内容与完成真人验证，CookingApp 不绕过验证码，不读取跨域窗口 DOM。视频自动转写/OCR 留到后续自动化版本。
 
 ### V2-P1｜繁体中文与台湾地区词汇
 
@@ -103,6 +103,51 @@ Kitchen term
 
 线上冰箱 V2 只记录“有没有”。购买/开封日期、保质期、临期提醒、补货提醒明确属于 V3，不在本版临时塞入。
 
+### V2-P1｜小票 OCR、采购入库与图像识别研究
+
+目标：先把“德国超市小票 → 可审核结构化采购数据 → 成本/线上冰箱”做成稳定接口，同时把图像处理和 OCR 作为可学习、可替换的独立模块。V2 不要求自己从零训练 OCR 模型。
+
+术语：OCR = Optical Character Recognition（光学字符识别）。默认流水线是 **图像预处理 → OCR → 版面/行解析 → 商品归一化 → 人工确认 → 写入采购/库存**，不是先 OCR 再靠 OCR 做图像预处理。
+
+| ID | 任务 | 当前状态 | 完成定义 |
+|---|---|---|---|
+| V2-OCR-01 | 定义统一 `ReceiptOcrDraft` 输出契约 | 待设计 | 不论服务端 PaddleOCR、未来 Apple Vision 或 ML Kit，都输出统一的文本行、bbox、置信度、候选数量/单位/价格和 provider/version。 |
+| V2-OCR-02 | OpenCV 小票预处理实验 | 待研究 | 完成灰度、去噪、阈值、自适应阈值、轮廓/四角检测、透视矫正的可视化实验；保留原图与处理参数用于对比。 |
+| V2-OCR-03 | Web 后端 OCR 原型 | 待研究 | 独立 Python vision service 使用 PaddleOCR；Next.js 只负责上传/调用，不把重型 Python 模型硬塞进前端构建。 |
+| V2-OCR-04 | 手机端本地 OCR Adapter 设计 | 待设计 | 统一预留 `apple_vision` / `mlkit` provider；原生 iOS/Android 可本地识别。当前纯 Web/PWA 不能直接调用 Apple Vision 原生 API，因此 V2 先完成契约和后端路线，原生实现随 App 端落地。 |
+| V2-OCR-05 | OCR 结果对接厨房词典 | 待设计 | `KARTOFFELN`、商店缩写等先匹配 `ingredient_market_aliases`，再映射稳定 `ingredient_id`；显示层按 `zh-CN` / `zh-TW` / `en` / `de` 翻译，不复制多个食材实体。 |
+| V2-OCR-06 | 小票/采购数据库扩展设计 | 已列入设计，未迁移 | 规划 `shopping_receipts`、`receipt_ocr_runs`、`shopping_receipt_items`、`purchase_records`、`ingredient_market_aliases`；先在 DEV migration 验证，再更新 `03` 为待同步 PROD。 |
+| V2-OCR-07 | CORD v2 学习与 benchmark | 待研究 | 从官方 CORD v2（1000 张，800/100/100）读取图片、box/text annotation 和 `gt_parse`；先跑现成 OCR/解析 baseline，再决定是否需要训练。 |
+| V2-OCR-08 | 德国小票人工核验与置信度 UI | 待设计 | 低置信度/首次出现商品必须人工确认；确认结果可沉淀为 alias。任何 OCR 结果在 V2 都不能静默直接改变库存或成本。 |
+| V2-OCR-09 | 小票隐私与原图生命周期 | 待设计 | 原图 owner-only；避免把银行卡/交易标识等无关敏感字段写入公共数据；允许确认后删除原图但保留已核验采购记录。 |
+
+#### CORD 的 V2 使用方法
+
+1. 官方项目：`clovaai/cord`，优先使用 CORD v2；许可证为 CC BY 4.0。
+2. CORD 是**收据后 OCR 解析学习数据**，主要为印度尼西亚收据，不直接等价于德国超市小票。
+3. 下载后先读懂一条样本：原图 → `valid_line`/box/text → `gt_parse` 结构化标签；不要第一天就训练网络。
+4. 用 CORD 的 train/dev/test 原划分做 baseline，记录 OCR 字符错误、行分组错误和字段解析错误。
+5. **不需要把 CORD 1000 张全部重新人工核验。** 数据集已有标注；学习阶段抽查约 20–50 张确认自己理解标签即可。若以后建立自己的德国小票数据集，则模型预标注后仍要人工复核 ground truth。
+6. CORD 只用于算法学习/benchmark；CookingApp 真正上线前，应另外收集不同德国超市、不同光线/折痕/角度的小票作为独立测试集。
+
+推荐代码边界（真正开始写 Python 时再创建）：
+
+```text
+services/
+  vision/
+    pyproject.toml          # 或 requirements.txt
+    receipt_ocr/
+      __init__.py
+      preprocess.py         # OpenCV
+      ocr.py                # PaddleOCR Adapter
+      parser.py             # 商品行/数量/价格解析
+      schema.py             # ReceiptOcrDraft
+      main.py               # 本地 CLI / 服务入口，可自行命名
+    tests/
+```
+
+`main.py` 不是 Python 项目的强制文件。当前 CookingApp 是 Next.js/TypeScript 项目，所以仓库根目录没有 `main.py` 完全正常。
+
 ### V2-P1｜可靠性与技术债
 
 | ID | 任务 | 当前状态 | 完成定义 |
@@ -122,7 +167,8 @@ Kitchen term
 3. 用至少两个账号确认 pantry RLS、公开审核和公开点赞不会跨用户。
 4. 完成多来源真实样本：B 站、下厨房、小红书、通用文本各至少一条。
 5. 建立 `zh-CN` / `zh-TW` i18n 骨架和台湾厨房词汇最小集。
-6. 再进入采购合并、成本结构、SMTP、监控和架构拆分。
+6. 设计小票 OCR 数据契约与数据库扩展；先完成 OpenCV + PaddleOCR 本地实验和 CORD baseline，不立即改 PROD。
+7. 再进入采购合并、成本结构、SMTP、监控和架构拆分。
 
 ## 5. V2 发布门禁
 
@@ -134,6 +180,7 @@ Kitchen term
 - [ ] B 站、下厨房、小红书、通用文本各完成一条真实导入；
 - [ ] 采购勾选、线上冰箱增加/用完/导出排除完成桌面+手机实机验收；
 - [ ] `zh-CN` / `zh-TW` 主流程与手机布局通过；
+- [ ] 小票 OCR 若进入本版可运行代码：必须保持“识别结果先审核、确认后才写采购/库存”，数据库 migration 先 DEV 后 PROD；
 - [x] JSON/CSV 业务备份已纳入 `pantry_items`；Storage 图片仍按独立策略处理；
 - [ ] `package.json`、CHANGELOG、Git tag、GitHub commit 和 Sites 部署版本一致；
 - [ ] `99` 中没有未分级的阻塞反馈。
