@@ -25,10 +25,11 @@
 4. **结构同步和业务数据迁移是两件事。** 不允许用 DEV 整库覆盖 PROD；Auth UUID、正式用户数据、Storage 文件必须独立处理。
 5. PROD 已存在而 DEV 缺失的结构也必须反向补到 DEV，避免双向漂移。
 6. DEV → PROD 业务数据迁移必须先 dry-run；已有 PROD 记录默认保留，不用 DEV 较旧数据覆盖正式数据。
+7. **仅处于产品/数据库设计阶段的结构，不算 DEV / PROD 差异。** 先记录在“计划结构变化”中；只有 migration 真正在 DEV 执行后，才移动到“待同步 PROD”。
 
 ## 当前结构状态
 
-**2026-08-14：DEV 与 PROD 的实际数据库对象结构已对齐。**
+**2026-08-18：DEV 与 PROD 的已实施数据库对象结构仍保持对齐；V2 小票 OCR 数据结构目前仅处于设计阶段，尚未在任一环境执行 migration。**
 
 已核对范围：
 
@@ -85,6 +86,48 @@
 - 临时 DEV 导出 / PROD 导入 Edge Function 已覆盖为 `410 retired` 且重新启用 JWT 验证。
 - 为迁移临时启用的 PROD `http` extension 已删除，没有作为永久数据库依赖保留。
 
+## V2 小票 OCR / 采购成本：计划结构变化（尚未形成数据库差异）
+
+> 2026-08-18 记录。此节是**设计清单，不是 migration，也不是待同步项**。在正式 SQL 写好并在 DEV 验证之前，PROD 不做任何变化。
+
+目标数据流：
+
+```text
+小票原图
+  ↓
+OCR run（PaddleOCR / Apple Vision / ML Kit 等）
+  ↓
+原始小票行 + bbox + confidence
+  ↓
+厨房词典 / 德国商品别名 → canonical ingredient_id
+  ↓
+用户确认
+  ↓
+purchase_records
+  ├─ 成本核算
+  └─ 可选加入 pantry_items
+```
+
+### 计划表
+
+| 计划对象 | 关键字段草案 | 目的 | RLS / 发布要求 |
+|---|---|---|---|
+| `shopping_receipts` | `id`, `owner_id`, `store_name`, `store_country`, `purchased_at`, `currency`, `total_amount`, `media_id`, `status` | 一张小票的业务入口；保留商店、日期、币种和原图引用 | owner-only；原图不得公开 |
+| `receipt_ocr_runs` | `id`, `owner_id`, `receipt_id`, `provider`, `model_version`, `preprocess_version`, `raw_text`, `raw_result jsonb`, `latency_ms`, `created_at` | 同一张小票允许比较服务端/手机端识别，不覆盖历史 | owner-only；便于研究 benchmark |
+| `shopping_receipt_items` | `id`, `owner_id`, `receipt_id`, `ocr_run_id`, `raw_text`, `raw_product_name`, `ingredient_id`, `quantity`, `quantity_unit`, `package_amount`, `package_unit`, `unit_price`, `line_total`, `bbox jsonb`, `confidence`, `verification_status` | 保存 OCR 候选行与候选食材映射；允许未知值为空 | owner-only；未确认不得自动改库存/成本 |
+| `purchase_records` | `id`, `owner_id`, `ingredient_id`, `source_receipt_item_id`, `store_name`, `purchased_at`, `currency`, `quantity`, `unit`, `package_amount`, `package_unit`, `total_price`, `verification_status` | 统一的“已确认采购事实”，既可来自小票，也可未来支持手工录入 | owner-only；成本核算优先读取已确认记录 |
+| `ingredient_market_aliases` | `id`, `ingredient_id`, `country_code`, `locale`, `store_name`, `alias`, `source`, `verification_status`, `last_seen_at` | 把 `KARTOFFELN`、商店缩写、德语包装名等映射到现有 canonical 食材 | 可考虑公共只读 + 管理员维护；用户私有经验需单独 owner 维度 |
+
+### 设计约束
+
+- 不为简中、繁中、英文、德文复制四个 ingredient；仍以稳定 `ingredient_id` 为核心，显示名称/alias 按 locale 映射。
+- OCR provider 不写死成单一实现，至少预留 `paddleocr`、`apple_vision`、`mlkit`、`manual`。
+- `raw_result` 用于调试和研究，正式采购事实必须落在显式字段，避免业务逻辑依赖某个 OCR 厂商 JSON 格式。
+- 数量、单位、价格允许空值；OCR 猜不出的字段不能伪造。
+- `verification_status` 至少区分 `unverified`、`user_verified`、`rejected`；只有确认后的记录才能进入成本或库存自动化。
+- 小票可能包含支付、交易或会员信息；公开分享 API 永不返回小票原图、`raw_result` 或非必要交易字段。
+- 真正建表时先生成单独 migration，在 DEV 执行、跑 RLS/索引/约束测试，再把本节对应项移动到“待同步 PROD”。
+
 ## 发布前给 Work / 发布聊天的固定检查单
 
 发布聊天应按以下顺序执行：
@@ -112,6 +155,8 @@ DEV → PROD 的测试数据合并不得通过整库覆盖完成。推荐规则�
 ## 当前待同步项
 
 **无。**
+
+V2 小票 OCR 表目前仍是上面的“计划结构变化”，没有在 DEV 或 PROD 建表，因此不属于待同步项。
 
 下次在 DEV 修改数据库结构时，先在本节加入：
 
