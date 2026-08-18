@@ -10,6 +10,7 @@
 - AI 提取、翻译、标签和过敏原判断都必须记录确认状态。
 - 公开分享接口默认排除私人日志、导入原始数据和用户信息。
 - 首版结构为购物清单、周菜单和 Open Food Facts 对接预留稳定主键，但不实现完整业务。
+- V2 起新增的 OCR/采购数据继续遵循“原始证据、AI/模型候选、人工确认后的业务事实”分层，不能把模型输出直接当作确定事实。
 
 ## 2. 核心关系
 
@@ -108,3 +109,157 @@ supabase/migrations/
 
 每个 migration 必须可重复部署到空数据库；种子数据使用稳定 slug，不在 SQL 中保存私人收藏数据。
 
+## 8. V2 计划扩展：德国小票 OCR、采购事实与市场别名
+
+> 状态：**数据库设计草案，尚未生成/执行 migration。** 实际 DEV / PROD 同步状态以 [`03_dev_prod_database_sync.md`](./03_dev_prod_database_sync.md) 为准。
+
+### 8.1 分层原则
+
+```text
+小票图片 / OCR provider 原始输出
+          ↓
+shopping_receipts + receipt_ocr_runs
+          ↓
+shopping_receipt_items（候选，允许错误/空字段）
+          ↓
+ingredient_market_aliases → ingredients.id
+          ↓
+用户确认
+          ↓
+purchase_records（可被成本/库存使用的事实）
+```
+
+这样可以同时支持：
+
+- Web 后端 PaddleOCR；
+- 未来 iOS Apple Vision；
+- 未来 Android/iOS ML Kit；
+- 人工录入；
+- 同一张小票比较不同识别器，不覆盖历史结果。
+
+### 8.2 计划表
+
+#### `shopping_receipts`
+
+建议字段：
+
+- `id uuid primary key`
+- `owner_id uuid not null`
+- `store_name text`
+- `store_country text default 'DE'`
+- `purchased_at timestamptz`
+- `currency text default 'EUR'`
+- `total_amount numeric`
+- `media_id uuid null`
+- `status text`：`uploaded / parsed / needs_review / confirmed / archived`
+- `created_at / updated_at`
+
+用途：代表一张真实小票。原图通过私有 Storage / `media` 引用，不进入公开分享。
+
+#### `receipt_ocr_runs`
+
+建议字段：
+
+- `id uuid primary key`
+- `owner_id uuid not null`
+- `receipt_id uuid not null`
+- `provider text`：`paddleocr / apple_vision / mlkit / manual / other`
+- `model_version text`
+- `preprocess_version text`
+- `raw_text text`
+- `raw_result jsonb`
+- `latency_ms integer`
+- `created_at`
+
+用途：记录一次识别实验，便于比较服务端与设备端结果，也便于以后重新跑模型而不覆盖旧结果。
+
+#### `shopping_receipt_items`
+
+建议字段：
+
+- `id uuid primary key`
+- `owner_id uuid not null`
+- `receipt_id uuid not null`
+- `ocr_run_id uuid null`
+- `raw_text text not null`
+- `raw_product_name text`
+- `ingredient_id uuid null`
+- `quantity numeric null`
+- `quantity_unit text null`
+- `package_amount numeric null`
+- `package_unit text null`
+- `unit_price numeric null`
+- `line_total numeric null`
+- `bbox jsonb null`
+- `confidence numeric null`
+- `verification_status text`：`unverified / user_verified / rejected`
+- `created_at / updated_at`
+
+用途：保存模型从小票中提出的“候选商品行”。未知字段允许 `null`，不能为了凑结构伪造数值。
+
+#### `purchase_records`
+
+建议字段：
+
+- `id uuid primary key`
+- `owner_id uuid not null`
+- `ingredient_id uuid not null`
+- `source_receipt_item_id uuid null`
+- `store_name text`
+- `purchased_at timestamptz`
+- `currency text`
+- `quantity numeric null`
+- `unit text null`
+- `package_amount numeric null`
+- `package_unit text null`
+- `total_price numeric null`
+- `verification_status text`
+- `created_at / updated_at`
+
+用途：统一保存已经确认、可以参与成本计算的采购事实。以后人工输入价格也可以直接写这里，而不必伪造小票。
+
+#### `ingredient_market_aliases`
+
+建议字段：
+
+- `id uuid primary key`
+- `ingredient_id uuid not null`
+- `country_code text`
+- `locale text`
+- `store_name text null`
+- `alias text not null`
+- `source text`
+- `verification_status text`
+- `last_seen_at timestamptz`
+- `created_at / updated_at`
+
+用途：将德国超市小票里的商品名/缩写映射回现有 canonical `ingredients.id`，再由显示层选择简中、台湾繁中、英文或德文名称。不要为同一个土豆/馬鈴薯/Kartoffel 创建多个 ingredient 实体。
+
+### 8.3 计划索引和约束
+
+- `shopping_receipts(owner_id, purchased_at desc)`；
+- `receipt_ocr_runs(receipt_id, created_at desc)`；
+- `shopping_receipt_items(receipt_id, verification_status)`；
+- `shopping_receipt_items(ingredient_id)`；
+- `purchase_records(owner_id, purchased_at desc)`；
+- `purchase_records(ingredient_id, purchased_at desc)`；
+- `ingredient_market_aliases(country_code, lower(alias))` 使用合适的唯一/近似搜索策略；
+- 金额、数量不得为负；`confidence` 若保存为 0–1 则加 check constraint；
+- 删除小票时如何保留已经确认的 `purchase_records` 必须在 migration 前明确：建议采购事实保留，来源引用置空或采用受控软删除。
+
+### 8.4 RLS 计划
+
+- `shopping_receipts`、`receipt_ocr_runs`、`shopping_receipt_items`、`purchase_records`：owner-only；
+- 小票原图、raw OCR JSON 永不进入匿名公开接口；
+- `ingredient_market_aliases` 分为“公共审校词条”和“用户私有经验”时，不要用一个宽松 policy 混在一起；实现前决定增加 `owner_id nullable` 还是拆公共/个人表；
+- 所有从 OCR 到库存/成本的写入必须经过已认证用户和确认动作，不能允许匿名识别结果触发业务更新。
+
+### 8.5 Migration 门禁
+
+1. 先在代码中冻结 `ReceiptOcrDraft` / purchase 数据契约；
+2. 写 migration；
+3. 只在 DEV 执行；
+4. 加 RLS、FK、索引和数据校验测试；
+5. 把 `03` 中对应计划项改成 `待同步 PROD`；
+6. DEV 实机确认后再同步 PROD；
+7. 发布 Sites 前再次检查 `03` 无待同步项。
