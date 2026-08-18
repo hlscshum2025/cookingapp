@@ -1,64 +1,217 @@
-# CookingApp V1
+# CookingApp-V2
 
-把 B 站收藏中真正想做、做过并成功的菜，整理成可搜索、可修改、可记录经验的个人做菜知识库。
+把 B 站、下厨房、小红书和其他来源中真正值得保留的菜谱，整理成一个可搜索、可修改、可记录个人经验，并适合在德国实际采购和做饭使用的个人厨房知识系统。
 
-第一版已经包含可运行网页，而不只是设计文档。未连接数据库时自动进入演示模式；连接 Supabase 并登录后，菜谱、个人版本、做菜日志、食材词典和导入结果保存到云端。
+**当前正式版本：CookingApp-V2（初步应用版）**  
+V1 已结项，V1 的技术经验、历史范围、旧初始化步骤和验收记录统一归档到 [`docs/00_v1_technical_experience.md`](docs/00_v1_technical_experience.md)。当前版本的开发任务统一看 [`docs/02_v2_workboard.md`](docs/02_v2_workboard.md)。
 
-## 已实现功能
+## 1. 当前产品定位
 
-- 响应式总览和手机底部导航
-- 菜谱搜索、状态筛选、详情、新建、编辑和删除
-- 来源视频、我的当前版本、历次制作日志三层信息
-- 分组式食材与步骤编辑、份数、时间、难度、标签、厨具
-- 厨房模式：大字号步骤、逐步勾选和份数换算
-- B 站收藏夹 JSON 导入、BV 号去重、预览与待整理队列
-- 中英德食材词典、德国购买关键词、无麸质与人工确认状态
-- 做菜日志：日期、评分、本次调整、结果、下次改进和私有照片
-- 公开只读分享页、二维码和复制链接骨架；私有首版暂不开放匿名数据库读取
-- Supabase 邮箱魔法链接登录、RLS、自动版本快照
-- 完整 JSON 备份导出和 PWA manifest
-- 完整备份覆盖 10 张业务表；Storage 图片保持独立，避免 JSON 膨胀
-- 无数据库时可直接运行的演示数据模式
-- 手动录入工作台：来源视频、AI 字幕、画面证据、食材和步骤原子写入 Supabase
+CookingApp-V2 不只是“收藏菜谱”，而是围绕实际做饭形成下面的闭环：
 
-## 申请并初始化 Supabase
+```text
+外部来源
+  ↓
+来源待办 / 导入中心
+  ↓
+人工或半结构化整理
+  ↓
+个人菜谱版本
+  ↓
+采购 / 线上冰箱 / 成本
+  ↓
+厨房模式实际制作
+  ↓
+做菜日志与下一次改进
+```
 
-1. 打开 <https://supabase.com/dashboard>，使用 GitHub 账号登录。
-2. 点击 `New project`；第一次使用时先创建一个 Organization，Free 方案即可。
-3. 项目名填 `cookingapp`，设置一个强数据库密码并保存到密码管理器。
-4. Region 选主要使用地附近：日本使用可选 Tokyo，德国使用可选 Frankfurt。
-5. 等项目创建完成，进入 `SQL Editor`，新建查询。
-6. 复制并运行 [`supabase/migrations/202608020001_cookingapp_v1.sql`](supabase/migrations/202608020001_cookingapp_v1.sql) 的全部内容。
-7. 再复制并运行 [`supabase/migrations/202608030001_import_audit.sql`](supabase/migrations/202608030001_import_audit.sql)，补齐来源视频、逐条审计和原子批量导入函数。
-8. 运行 [`supabase/migrations/202608090001_manual_recipe_entry.sql`](supabase/migrations/202608090001_manual_recipe_entry.sql)，安装手动录入的查重与原子保存函数。
-9. 运行 [`supabase/migrations/202608090002_trigger_security_hardening.sql`](supabase/migrations/202608090002_trigger_security_hardening.sql)，禁止从 RPC 直接调用内部触发器函数。
-10. 运行 [`supabase/migrations/20260810060929_harden_rls_cross_owner_relations.sql`](supabase/migrations/20260810060929_harden_rls_cross_owner_relations.sql)，关闭匿名菜谱读取并阻止跨用户关联注入。
-11. 进入 `Project Settings → Data API / API Keys`，复制：
-   - Project URL
-   - Publishable key（旧项目可能显示 `anon public key`）
-12. 在本地复制 `.env.example` 为 `.env.local`，填入这两项。
-13. 进入 `Authentication → URL Configuration`，开发阶段把 Site URL 填为 `http://localhost:3000`；上线时改为正式域名，并把正式回调地址加入 Redirect URLs。
+核心原则：
 
-若要在有 `psql` 的管理环境重复验证真实越权矩阵，请把数据库连接串仅放在本机环境变量 `COOKINGAPP_DATABASE_URL` 中，然后运行 `bash scripts/run-rls-matrix.sh`。脚本不会把连接串写入仓库。
+- 收藏不等于菜谱；来源和正式菜谱分开保存。
+- 原始配方、个人版本和历次做菜日志分层保存。
+- 未知克数、时间、火候不得由程序强行猜测。
+- 德国采购、繁中地区词汇、OCR/AI 都通过稳定的 canonical 食材层接入。
+- 任何 AI / OCR 自动结果默认是候选，关键业务数据需要保留证据与核验状态。
+- 私人数据依靠 Supabase RLS 隔离，前端隐藏按钮不是权限边界。
 
-前端绝对不要使用 `service_role`、secret key 或数据库密码，也不要把 `.env.local` 提交到 GitHub。Publishable/anon key 可以出现在浏览器端，真正的数据隔离由 migration 中的 Row Level Security 完成。
+## 2. V2 当前能力
 
-### 四份 SQL 的统一名称
+### 菜谱与个人知识
 
-在 Supabase `SQL Editor` 中保存查询时，建议按下表命名。前两份负责安装，后两份只读检查：
+- 菜谱搜索、筛选、详情、新建、编辑和删除
+- 来源信息、当前个人版、历史版本和做菜日志分层
+- 食材、步骤、份数、时间、难度、标签和厨具编辑
+- 厨房模式：大字号步骤、逐步勾选、份量换算
+- 成品图片与私有做菜日志图片
+- 草稿、失败重试和来源追溯
 
-| 顺序 | Supabase 中的保存名称 | 仓库文件 | 用途 | 可否重复运行 |
-|---:|---|---|---|---|
-| 01 | `01_CookingApp数据库初始化` | [`202608020001_cookingapp_v1.sql`](supabase/migrations/202608020001_cookingapp_v1.sql) | 创建业务表、RLS、Storage 策略和基础触发器 | 可以 |
-| 02 | `02_B站导入审计升级` | [`202608030001_import_audit.sql`](supabase/migrations/202608030001_import_audit.sql) | 补充导入字段并安装批量导入函数 | 可以 |
-| 03 | `03_检查数据库安装是否完整` | [`03_verify_installation.sql`](supabase/checks/03_verify_installation.sql) | 检查四张关键表和导入函数是否存在 | 只读，可随时运行 |
-| 04 | `04_检查云端写入结果` | [`04_verify_cloud_data.sql`](supabase/checks/04_verify_cloud_data.sql) | 查看四张关键表记录数和最近导入任务 | 只读，可随时运行 |
+### 多来源导入
 
-如果 02 曾经报 `syntax error at or near "v_added"`，不要删表。拉取当前修正版后重新运行 02 全文即可；它已经补上缺失的分号，并按可重复执行方式编写。
+- B 站收藏夹 JSON / BV 来源导入
+- 统一 `SourceAdapter` / `SourceDraft`
+- 下厨房单条菜谱半结构化导入
+- 小红书分享链接 + 人工打开原页面 + 页面提取器
+- 通用链接 / 粘贴文本入口
+- 未可靠取得的字段保持待核验，不伪造数据
 
-## Windows 本地运行
+### 公开内容与账号
 
-先安装 Node.js 22 LTS、Git 和 VS Code，然后：
+- 邮箱注册、确认、登录、找回密码和修改密码
+- Cloudflare Turnstile
+- 私人菜谱与公开菜谱分层
+- 公开菜谱提交审核、白名单快照和只读公开数据
+- 成品图封面、公开点赞与排序能力逐步完善
+- 多账号 RLS 隔离和跨用户越权测试
+
+### 采购与线上冰箱
+
+- 多菜谱加入采购车
+- 德国普通超市 / 亚超分类
+- 已购买勾选、复制和 CSV 导出
+- 账号级线上冰箱
+- 已有库存自动排除采购项
+- “用完了”二次确认
+- V2 正在设计采购价格、包装净量、商店、成本快照和每人份成本
+
+### 多语言与地区词汇
+
+V2 不采用“只做简繁字符转换”的方案，而是建立地区化词汇层：
+
+```text
+canonical ingredient
+  ├─ zh-CN
+  ├─ zh-TW
+  ├─ en
+  ├─ de
+  └─ market aliases / store aliases
+```
+
+目标包括：
+
+- `zh-CN` / `zh-TW` UI
+- 台湾地区厨房词汇
+- 中英德食材词典
+- 德国包装名、超市简称和替代品
+- 不同语言或别名搜索同一个食材实体
+
+## 3. V2 新增研究线：德国小票 OCR
+
+V2 开始把机器视觉学习接入真实厨房业务，但**当前阶段不要求从零训练 OCR 模型**。
+
+目标流水线：
+
+```text
+德国超市小票照片
+  ↓
+OpenCV 图像预处理
+  ↓
+OCR（先以 PaddleOCR 为服务端 baseline）
+  ↓
+商品行 / 数量 / 单位 / 价格解析
+  ↓
+德国商品名或缩写
+  ↓
+厨房词典 / market alias
+  ↓
+canonical ingredient_id
+  ↓
+用户核验
+  ↓
+采购记录 / 成本 / 可选加入线上冰箱
+```
+
+计划同时保留：
+
+- Web 后端 Python vision service
+- 未来原生 iOS 的 Apple Vision Adapter
+- 未来 Android / iOS 的 ML Kit Adapter
+- 统一 `ReceiptOcrDraft` 输出契约
+- CORD v2 receipt parsing 学习与 benchmark
+
+对应任务见 [`docs/02_v2_workboard.md`](docs/02_v2_workboard.md)，计划数据库结构见 [`docs/03_dev_prod_database_sync.md`](docs/03_dev_prod_database_sync.md)。
+
+## 4. 后续版本
+
+### V3｜图像自动化、库存提醒与并行厨房
+
+- 视频关键帧 OCR
+- 图片中的食材 / 字幕 / 用量候选提取
+- 批量后台任务、断点续传和失败重试
+- 库存购买日期、开封日期、保质期与临期提醒
+- 手机 / 平板多菜谱并行厨房
+- 灶台、锅具、烤箱和多人 / 多厨房调度
+
+### V4｜语音识别、YOLO 与多模态 AI 研究
+
+- 学习并接入 ASR，以 Whisper 类模型作为 baseline
+- 视频语音转 timestamp transcript
+- YOLO / 目标检测用于冰箱食材、商品、厨具、容器、价格标签等视觉目标
+- 研究自建厨房目标检测数据集、标注、训练、验证和部署
+- 把 ASR、字幕、OCR、目标检测和原始来源对齐到同一时间轴 / 实体
+- 做证据融合、冲突检测和可追溯结构化，而不是让单一模型覆盖原始证据
+
+完整版本规划见 [`docs/01_product_roadmap.md`](docs/01_product_roadmap.md)。
+
+## 5. 技术架构
+
+```text
+Next.js / React / TypeScript
+          │
+          ├─ Supabase Auth
+          ├─ Supabase PostgreSQL
+          ├─ Supabase Storage
+          ├─ RLS / RPC / migrations
+          │
+          ├─ Source Adapters
+          │    ├─ Bilibili
+          │    ├─ 下厨房
+          │    ├─ 小红书
+          │    └─ Generic
+          │
+          └─ 后续独立 Python AI services
+               ├─ OpenCV
+               ├─ PaddleOCR
+               ├─ YOLO
+               └─ ASR / multimodal research
+```
+
+生产代码与数据库迁移保存在 GitHub；正式业务数据保存在 Supabase。B 站等平台的视频本体不复制到仓库，只保存必要来源信息和用户整理结果。
+
+## 6. 项目结构
+
+```text
+app/                         Next.js 页面与路由
+components/                  可复用 UI / 业务组件
+lib/                         数据类型、客户端与业务服务
+public/tools/                浏览器端辅助提取工具
+supabase/migrations/         数据库结构变更
+supabase/checks/             数据库只读检查
+supabase/tests/              RLS / 权限测试
+tests/                       应用级自动测试
+tools/                       本地来源导出工具
+docs/                        版本路线图、经验和操作文档
+.openai/hosting.json         Sites 项目关联
+```
+
+未来视觉研究代码预计独立放在：
+
+```text
+services/
+  vision/
+    pyproject.toml
+    receipt_ocr/
+      preprocess.py
+      ocr.py
+      parser.py
+      schema.py
+      main.py
+```
+
+Python 项目并不强制必须有 `main.py`；这个文件只作为我们未来 vision service 的一个入口命名建议。
+
+## 7. Windows 本地运行 Web
+
+安装 Node.js 22 LTS 和 Git，然后：
 
 ```powershell
 git clone https://github.com/hlscshum2025/cookingapp.git
@@ -68,91 +221,82 @@ npm install
 npm run dev
 ```
 
-浏览器打开终端显示的地址。若暂时不填 Supabase 配置，仍可以体验所有主要页面；演示修改只保存在当前浏览器。
+如果已经 clone：
 
-## 第一次登录后的使用顺序
-
-网页中的“登录”是 **CookingApp 应用用户登录**，由 Supabase Auth 负责；它不是 GitHub 登录、域名登录，也不是 Supabase Dashboard 账号登录。第一次不需要提前注册：输入一个能接收邮件的邮箱，点击 Supabase 发来的魔法链接，就会自动创建应用用户。
-
-本地网页与 Supabase 要同时满足三项条件才能写入云端：
-
-| 条件 | 怎样确认 |
-|---|---|
-| `.env.local` 已填 Project URL 和 Publishable key | 修改后重启 `npm run dev`；登录页不再提示缺少配置 |
-| 数据库已运行 01 和 02 | 运行 03，五个结果都应为 `true` |
-| 当前浏览器已完成邮箱登录 | 顶部显示“Supabase 已连接”，设置页显示登录邮箱 |
-
-然后按下面顺序验证：
-
-1. 打开 `/login`，输入管理者邮箱。
-2. 在同一台电脑、同一浏览器中点击邮件里的魔法登录链接。
-3. 到 Supabase `Authentication → Users`，确认出现该邮箱。
-4. 打开“导入中心”，上传收藏夹工具导出的 JSON，选择“先试导入前 10 条”。
-5. 页面必须显示“云端导入完成”；如果显示“本机演示导入完成”，四张表不会变化。
-6. 运行 04：首次应有约 10 条 `source_videos`、10 条 `import_items`、10 条 `recipes` 和 1 条 `import_jobs`。
-7. 再导入相同前 10 条，预期新增 0、重复 10。
-8. 导入项只会成为私密“待整理”菜谱，不会凭空生成克数和火候。
-9. 从 5–10 个差异较大的视频开始，人工整理食材与步骤。
-10. 实际做成功后更新为“已成功/常做”，并新增一次做菜日志。
-
-四张表为空通常表示还没有发生“已登录的云端写入”，不代表表本身断开。能在 Supabase Table Editor 中看到这些表，说明数据库结构已经存在；网页显示“未登录”时，程序会明确进入本机演示模式。
-
-## 多灶台、多厨房调度：学习路线
-
-这个功能属于运筹学中的约束调度。当前不需要训练 AI；先用 Google OR-Tools 的 CP-SAT 把步骤、设备、人员和上桌时间建模，日后再用真实做饭日志修正每一步的预计时长。
-
-| 学习阶段 | 需要理解的内容 | 对应做饭场景 | 学习链接 |
-|---:|---|---|---|
-| 1 | Job Shop Scheduling | 多道菜各有步骤先后，同一灶位同一时间只能做一步 | [OR-Tools Job Shop](https://developers.google.com/optimization/scheduling/job_shop) |
-| 2 | CP-SAT 与区间变量 | 为每一步建立开始、结束、持续时间，求一份可执行计划 | [CP-SAT Solver](https://developers.google.com/optimization/cp/cp_solver) |
-| 3 | `NoOverlap` 与 `Cumulative` | 一口锅不可重叠使用；两个大火位表示容量为 2 | [CP-SAT Python API](https://or-tools.github.io/docs/pdoc/ortools/sat/python/cp_model.html) |
-| 4 | RCPSP | 步骤有前置关系，同时受灶台、锅、烤箱、案板数量限制 | [OR-Tools RCPSP 示例](https://github.com/google/or-tools/blob/stable/examples/python/rcpsp_sat.py) |
-| 5 | Employee Scheduling | 把切菜、翻炒、看火分给不同的人，并限制每个人不能同时做两件事 | [OR-Tools Employee Scheduling](https://developers.google.com/optimization/scheduling/employee_scheduling) |
-| 6 | Multi-mode / Multi-skill RCPSP | 同一步可选大火、小火或不同厨房；不同人拥有不同技能 | [多技能、多模式 RCPSP 论文](https://www.nature.com/articles/s41598-023-45970-y) |
-
-在 CookingApp 中的映射：一道菜是一个作业，切配/腌制/翻炒是任务，“先腌后煎”是前置约束，两个大火位是容量为 2 的资源，锅具和厨师也是资源，多厨房是可选执行地点。优化目标按优先级处理：先满足食品安全、步骤先后和资源容量等硬约束，再尽量让所有菜准时且接近同时上桌，减少成品放凉时间和人员空等。
-
-实现顺序建议：先做单厨房固定计划，再加入多人分工和多个厨房，最后加入“某一步延误后，只重排尚未开始任务”的滚动重排。
-
-## 数据存放
-
-| 内容 | 存放位置 |
-|---|---|
-| 程序、migration、文档、导出工具、公开种子 | GitHub |
-| 菜谱、版本、日志、食材词典、导入任务 | Supabase PostgreSQL |
-| 本人上传的菜谱图片（后续接入） | Supabase Storage |
-| B 站视频 | 不复制，仅保存公开链接和元数据 |
-| 密钥 | `.env.local` / 部署平台环境变量，不进入 GitHub |
-
-## 项目结构
-
-```text
-app/                    页面：总览、菜谱、导入、食材、日志、设置、分享
-components/             可复用界面与本地/云端状态
-lib/                    类型、演示数据和 Supabase 数据服务
-supabase/migrations/    数据库表、索引、触发器和 RLS
-tools/                  B 站收藏夹本地导出工具（原仓库保留）
-docs/                   产品、数据库与开发规划（原仓库保留）
-.env.example            可安全提交的配置模板
+```powershell
+cd cookingapp
+git pull
+npm install
+npm run dev
 ```
 
-## 当前边界
+`.env.local` 至少需要对应环境的 Supabase URL 和 Publishable key。Secret、`service_role`、数据库密码和 Cookie 不得提交到 GitHub。
 
-- V1 不下载 B 站视频，也不上传 Cookie。
-- AI 后续可辅助从字幕/简介生成候选，但未知用量、温度和时间必须为空并等待确认。
-- 无麸质、过敏原和替代品信息是个人整理工具，不构成医疗建议。
-- V1 暂不含完整周菜单、库存、购物清单、微信登录或多人协作；数据库已为后续扩展保留稳定主键。
+正式开发约定：
 
-详细规格仍见 `docs/feature_list.md`、`docs/database_schema.md` 和 `docs/development_plan.md`。
+- localhost 使用 DEV Supabase
+- Sites 正式站使用 PROD Supabase
+- 数据库结构先在 DEV 验证
+- 发布前读取 `docs/03_dev_prod_database_sync.md`
+- 不使用 DEV 整库覆盖 PROD
 
-## 管理与学习文档
+## 8. Python 视觉实验环境
 
-- [管理者操作指南](docs/ADMIN_GUIDE.md)：本地启动、Supabase 检查、JSON 导入、备份、部署、域名和排错。
-- [代码与 npm 说明](docs/CODE_GUIDE.md)：解释 Git、VS Code、Node.js、npm、目录结构和主要代码职责。
-- [最新后续路线图](docs/roadmap.md)：按云端验收、部署、首批内容和 V2 分阶段推进。
-- [前 10 个视频试导入审计](docs/first-10-import-audit.md)：真实 JSON 抽样结果、字段缺口与需人工核验项。
-- [成本、准备时间与多人厨房调度设计](docs/cost-time-scheduling-design.md)：V2 成本/时间模型与 V3 调度算法。
-- [00｜V1 技术经验路线图](docs/00_v1_technical_experience.md)：记录从 0 到第一版的研发经验、范围调整与注意事项。
-- [01｜全生命周期产品路线图](docs/01_product_roadmap.md)：记录已完成、未来、延期、替代和放弃的功能。
-- [02｜V2 当前工作任务表](docs/02_v2_workboard.md)：只记录当前第二版的实际任务、状态和发布门禁。
-- [99｜问题反馈与调整记录](docs/99_feedback_and_adjustments.md)：记录反馈、原因、调整、验证和后续。
+视觉研究与 Next.js 的 npm 环境分开管理。例如在仓库根目录：
+
+```powershell
+python -m venv .venv-vision
+.venv-vision\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install opencv-python numpy
+```
+
+后续再按实验需要安装 PaddleOCR、PyTorch 或 Ultralytics YOLO。第三方 Python 包安装在虚拟环境中，不直接复制进 `scripts/` 或 `services/` 目录。
+
+## 9. 数据库与发布规则
+
+任何新增表、字段、索引、约束、RLS、Trigger 或 Function 都遵循：
+
+```text
+设计
+ ↓
+GitHub migration
+ ↓
+DEV 执行与测试
+ ↓
+docs/03 记录为待同步
+ ↓
+同步 PROD
+ ↓
+权限 / RLS 复核
+ ↓
+Sites 发布
+ ↓
+实机验收
+```
+
+当前 V2 的小票 OCR 表仍处于设计阶段，没有因为文档更新而直接修改 PROD。
+
+## 10. 关键文档
+
+- [`docs/00_v1_technical_experience.md`](docs/00_v1_technical_experience.md)：V1 结项、历史操作和技术经验
+- [`docs/01_product_roadmap.md`](docs/01_product_roadmap.md)：全生命周期版本路线图
+- [`docs/02_v2_workboard.md`](docs/02_v2_workboard.md)：V2 当前实际任务和验收状态
+- [`docs/03_dev_prod_database_sync.md`](docs/03_dev_prod_database_sync.md)：DEV / PROD 数据库差异与发布门禁
+- [`docs/99_feedback_and_adjustments.md`](docs/99_feedback_and_adjustments.md)：使用反馈和待分级调整
+- [`docs/ADMIN_GUIDE.md`](docs/ADMIN_GUIDE.md)：管理员操作指南
+- [`docs/CODE_GUIDE.md`](docs/CODE_GUIDE.md)：代码、本地运行和 npm 说明
+- [`docs/database_schema.md`](docs/database_schema.md)：数据库设计背景
+
+## 11. V1 历史归档
+
+V1 不再作为 README 的当前产品说明。以下内容已经或将持续归档到 [`docs/00_v1_technical_experience.md`](docs/00_v1_technical_experience.md)：
+
+- 从 0 到 V1 的里程碑与范围调整
+- V1 初始 Supabase 安装和 migration 顺序
+- V1 的登录 / 导入 / 云端写入验收流程
+- 10 条真实菜谱闭环与第二账号权限验收
+- V1 的分享、安全、RLS、备份恢复、Sites 发布经验
+- 被 V2/V3 替代或延期的旧方案
+
+从现在开始，README 只描述 **CookingApp-V2 当前基线和未来版本入口**，不再把历史 V1 功能状态当成当前待办。
