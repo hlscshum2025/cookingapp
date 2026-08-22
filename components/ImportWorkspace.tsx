@@ -30,7 +30,7 @@ function durationLabel(seconds?:number){
 export function ImportWorkspace(){
   const {sourceVideos,importJobs,isDemo,cloudStatus,importVideos}=useCooking();
   const {t}=useLocale();
-  const [platform,setPlatform]=useState<PlatformChoice>("bilibili");
+  const [platform,setPlatform]=useState<PlatformChoice|null>(null);
   const [pendingVideos,setPendingVideos]=useState<SourceVideo[]>([]);
   const [selectedId,setSelectedId]=useState("");
   const [search,setSearch]=useState("");
@@ -87,16 +87,16 @@ export function ImportWorkspace(){
     {connectionNotice&&<div className="notice connection-notice">{connectionNotice}</div>}
     {error&&<div className="notice notice-error" role="alert">{error}</div>}
 
-    <div className={`import-platform-shell platform-${platform}`}>
+    <div className={`import-platform-shell ${platform?`platform-${platform} is-open`:""}`}>
       <nav className="import-platform-nav" aria-label="来源平台">
-        {platforms.map(item=><button type="button" key={item.id} className={platform===item.id?"active":"inactive"} aria-pressed={platform===item.id} onClick={()=>setPlatform(item.id)}>
+        {platforms.map(item=><button type="button" key={item.id} className={platform===item.id?"active":platform?"inactive":""} aria-pressed={platform===item.id} aria-expanded={platform===item.id} onClick={()=>setPlatform(current=>current===item.id?null:item.id)}>
           <span className="platform-logo">{item.icon?<img src={item.icon} alt="" aria-hidden="true"/>:<b>＋</b>}</span>
           <strong>{t(item.labelKey)}</strong>
           <span className="platform-capabilities">{item.badges.map(badge=><small key={badge}>{badge}</small>)}</span>
         </button>)}
       </nav>
 
-      <section className="platform-import-panel">
+      {platform&&<section className="platform-import-panel">
       {platform==="bilibili"&&<>
         <UniversalSourceImport platform="bilibili"/>
         <div className="divider"/>
@@ -111,7 +111,7 @@ export function ImportWorkspace(){
       {platform==="xiaohongshu"&&<UniversalSourceImport platform="xiaohongshu"/>}
       {platform==="xiachufang"&&<UniversalSourceImport platform="xiachufang"/>}
       {platform==="more"&&<PlatformFeedbackForm/>}
-      </section>
+      </section>}
     </div>
 
     <div className="section-head pending-source-head"><div><p className="eyebrow">REVIEW QUEUE</p><h2>待处理来源与手工录入</h2><p className="subtitle">不论从哪个平台导入，都会先进入这里核验；保存正式菜谱后自动移出。</p></div><span className="badge">{filteredVideos.length}</span></div>
