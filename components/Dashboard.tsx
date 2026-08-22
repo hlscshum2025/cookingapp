@@ -4,14 +4,15 @@ import { useEffect,useState } from "react";
 import Link from "next/link";
 import { useCooking } from "./CookingProvider";
 import { RecipeCard } from "./RecipeCard";
-import { addPantryItemByName,loadPantryItems,removePantryItem,type PantryItem } from "@/lib/pantry";
+import { addPantryItemByName,loadPantryItems,removePantryItems,type PantryItem,type PantryLocation } from "@/lib/pantry";
 
 export function Dashboard() {
   const {recipes,logs,cloudStatus}=useCooking();
   const successful=recipes.filter(r=>["successful","favorite"].includes(r.status)).length;
   const inbox=recipes.filter(r=>r.status==="inbox").length;
   const [pantry,setPantry]=useState<PantryItem[]>([]);
-  const [pantryInput,setPantryInput]=useState("");
+  const [pantryInputs,setPantryInputs]=useState<Record<PantryLocation,string>>({fridge:"",cabinet:""});
+  const [deleteQueue,setDeleteQueue]=useState<string[]>([]);
   const [pantryBusy,setPantryBusy]=useState(false);
   const [pantryError,setPantryError]=useState("");
 
@@ -22,22 +23,32 @@ export function Dashboard() {
     return()=>{active=false;};
   },[cloudStatus]);
 
-  const addPantry=async()=>{
-    if(!pantryInput.trim())return;
+  const addPantry=async(location:PantryLocation)=>{
+    const value=pantryInputs[location];
+    if(!value.trim())return;
     setPantryBusy(true);setPantryError("");
     try{
-      const saved=await addPantryItemByName(pantryInput);
+      const saved=await addPantryItemByName(value,location);
       setPantry(old=>[saved,...old.filter(item=>item.id!==saved.id&&item.ingredientKey!==saved.ingredientKey)]);
-      setPantryInput("");
+      setPantryInputs(old=>({...old,[location]:""}));
     }catch(reason){setPantryError(reason instanceof Error?reason.message:"加入线上冰箱失败。");}
     finally{setPantryBusy(false);}
   };
 
-  const useUp=async(item:PantryItem)=>{
-    if(!window.confirm(`确定“${item.name}”已经用完了吗？\n\n确认后会从线上冰箱移除，之后采购清单会重新把它列为需要购买。`))return;
-    setPantryError("");
-    try{await removePantryItem(item.id);setPantry(old=>old.filter(value=>value.id!==item.id));}
-    catch(reason){setPantryError(reason instanceof Error?reason.message:"移出线上冰箱失败。");}
+  const toggleDelete=(id:string)=>setDeleteQueue(old=>old.includes(id)?old.filter(value=>value!==id):[...old,id]);
+  const confirmDelete=async()=>{
+    if(!deleteQueue.length)return;
+    const names=pantry.filter(item=>deleteQueue.includes(item.id)).map(item=>item.name);
+    if(!window.confirm(`确认统一删除 ${deleteQueue.length} 项库存吗？\n\n${names.join("、")}\n\n删除后采购清单会重新把它们列为需要购买。`))return;
+    setPantryBusy(true);setPantryError("");
+    try{await removePantryItems(deleteQueue);setPantry(old=>old.filter(item=>!deleteQueue.includes(item.id)));setDeleteQueue([]);}
+    catch(reason){setPantryError(reason instanceof Error?reason.message:"删除库存失败。");}
+    finally{setPantryBusy(false);}
+  };
+
+  const pantryZone=(location:PantryLocation,title:string,eyebrow:string,placeholder:string)=>{
+    const items=pantry.filter(item=>item.storageLocation===location);
+    return <section className={`pantry-zone pantry-zone-${location}`}><div className="pantry-zone-head"><div><p className="eyebrow">{eyebrow}</p><h3>{title}</h3></div><span className="badge">{items.length} 项</span></div><div className="pantry-add-row"><div className="field"><label>加入{title}食材</label><input value={pantryInputs[location]} onChange={event=>setPantryInputs(old=>({...old,[location]:event.target.value}))} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();void addPantry(location);}}} placeholder={placeholder}/></div><button className="btn btn-primary" type="button" disabled={pantryBusy||!pantryInputs[location].trim()} onClick={()=>void addPantry(location)}>＋ 加入</button></div>{items.length?<div className="pantry-item-grid">{items.map(item=>{const queued=deleteQueue.includes(item.id);return <article className={`pantry-item ${queued?"is-queued":""}`} key={item.id}><div><b>{item.name}</b><small>{item.category||"其他"}</small></div><button type="button" className="pantry-delete" onClick={()=>toggleDelete(item.id)} aria-pressed={queued} title={queued?`取消删除 ${item.name}`:`将 ${item.name} 加入删除队列`}>×</button>{queued&&<span>待删除</span>}</article>;})}</div>:<div className="pantry-empty">这里还没有食材。</div>}</section>;
   };
 
   return <div className="page">
@@ -45,14 +56,14 @@ export function Dashboard() {
       <div className="hero-copy"><p className="eyebrow" style={{color:"#f0c89e"}}>YOUR PERSONAL COOKBOOK</p><h1>今天，想做点<br/>真正成功过的。</h1><p>把 B 站收藏整理成自己的版本，记录每次调整；以后不再重新翻视频找克数和火候。</p><div className="hero-actions"><Link href="/recipes/new" className="btn btn-primary">＋ 新建菜谱</Link><Link href="/imports" className="btn btn-secondary">导入收藏夹</Link></div></div>
       <div className="hero-board"><div className="mini-stat"><strong>{successful}</strong><span>已验证成功</span></div><div className="mini-stat"><strong>{inbox}</strong><span>等待整理</span></div><div className="mini-stat"><strong>{logs.length}</strong><span>制作记录</span></div><div className="mini-stat"><strong>3</strong><span>中英德语言</span></div></div>
     </section>
-    <section className="stats"><div className="stat"><div className="stat-label">全部菜谱</div><div className="stat-value">{recipes.length}</div><small>个人知识库</small></div><div className="stat"><div className="stat-label">常做</div><div className="stat-value">{recipes.filter(r=>r.status==="favorite").length}</div><small>随时可复刻</small></div><div className="stat"><div className="stat-label">待尝试</div><div className="stat-value">{recipes.filter(r=>r.status==="to_try").length}</div><small>下一批候选</small></div><div className="stat"><div className="stat-label">线上冰箱</div><div className="stat-value">{pantry.length}</div><small>已有食材 / 调料</small></div></section>
+    <section className="stats"><div className="stat"><div className="stat-label">全部菜谱</div><div className="stat-value">{recipes.length}</div><small>个人知识库</small></div><div className="stat"><div className="stat-label">常做</div><div className="stat-value">{recipes.filter(r=>r.status==="favorite").length}</div><small>随时可复刻</small></div><div className="stat"><div className="stat-label">待尝试</div><div className="stat-value">{recipes.filter(r=>r.status==="to_try").length}</div><small>下一批候选</small></div><div className="stat"><div className="stat-label">我的粮仓</div><div className="stat-value">{pantry.length}</div><small>冰箱 / 储物柜</small></div></section>
 
-    <section className="panel" style={{marginTop:20,marginBottom:24}}>
-      <div className="section-head" style={{marginTop:0}}><div><p className="eyebrow">ONLINE PANTRY</p><h2>线上冰箱</h2><p className="subtitle">把家里长期已有的调料、干货或食材放这里。采购清单会自动排除它们；用完时点“用完了”即可重新加入采购需求。</p></div><span className="badge">{pantry.length} 项库存</span></div>
+    <section className="panel pantry-board" style={{marginTop:20,marginBottom:24}}>
+      <div className="section-head" style={{marginTop:0}}><div><p className="eyebrow">MY PANTRY</p><h2>我的粮仓</h2><p className="subtitle">把冷藏食材和常温储物分开放置。粮仓中的库存会从采购清单自动排除；需要删除时先加入队列，再统一确认。</p></div><span className="badge">{pantry.length} 项库存</span></div>
       {cloudStatus==="connected"?<>
-        <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}><div className="field" style={{flex:"1 1 260px",margin:0}}><label>加入已有食材 / 调料</label><input value={pantryInput} onChange={event=>setPantryInput(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();void addPantry();}}} placeholder="例如：酱油、盐、花椒、黄油"/></div><button className="btn btn-primary" type="button" disabled={pantryBusy||!pantryInput.trim()} onClick={()=>void addPantry()}>{pantryBusy?"正在保存…":"＋ 加入冰箱"}</button></div>
+        <div className="pantry-zones">{pantryZone("fridge","线上冰箱","ONLINE FRIDGE","例如：牛奶、鸡蛋、黄油")}{pantryZone("cabinet","线上储物柜","ONLINE CABINET","例如：盐、花椒、酱油、干货")}</div>
         {pantryError&&<div className="notice" role="alert" style={{marginTop:12,background:"#fbe5de",color:"#923c29"}}>{pantryError}</div>}
-        {pantry.length?<div className="tag-row" style={{gap:10,marginTop:16}}>{pantry.map(item=><span className="tag" key={item.id} style={{display:"inline-flex",gap:8,alignItems:"center"}}><b>{item.name}</b><button type="button" className="auth-link" onClick={()=>void useUp(item)} title={`标记 ${item.name} 已用完`}>用完了</button></span>)}</div>:<div className="notice" style={{marginTop:16}}>线上冰箱还是空的。可以先把盐、糖、酱油、醋等常备调料加入；采购页面也能把买到的食材直接放进来。</div>}
+        {deleteQueue.length>0&&<div className="pantry-delete-queue" role="status"><div><b>删除队列：{deleteQueue.length} 项</b><small>红色框内的食材将在确认后统一删除。</small></div><button className="btn btn-secondary" type="button" onClick={()=>setDeleteQueue([])}>全部取消</button><button className="btn btn-danger" type="button" disabled={pantryBusy} onClick={()=>void confirmDelete()}>{pantryBusy?"正在删除…":"确认统一删除"}</button></div>}
       </>:<div className="notice">登录后线上冰箱会按账号保存在云端，并在不同设备之间同步。</div>}
       <div style={{marginTop:14}}><Link href="/translations" className="btn btn-secondary">打开采购清单 →</Link></div>
     </section>
