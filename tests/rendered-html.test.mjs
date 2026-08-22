@@ -112,6 +112,8 @@ test("导入中心读取 source_videos 并串联播放与手工录入", async ()
   assert.match(imports,/is-floating/);
   assert.match(imports,/import-platform-nav/);
   assert.match(imports,/import-platform-shell/);
+  assert.match(imports,/useState<PlatformChoice\|null>\(null\)/);
+  assert.match(imports,/current===item\.id\?null:item\.id/);
   assert.match(imports,/UniversalSourceImport platform="xiaohongshu"/);
   assert.match(imports,/UniversalSourceImport platform="xiachufang"/);
   assert.match(imports,/PlatformFeedbackForm/);
@@ -133,4 +135,17 @@ test("设置页区分环境配置、用户登录和当前数据模式并可设�
   assert.match(source,/设置账号登录密码/);
   assert.match(source,/updateUser\(\{password:newPassword\}\)/);
   assert.match(source,/finally\{setPasswordBusy\(false\);\}/);
+  assert.match(source,/settings-backup/);
+  assert.match(source,/<BackupRestorePanel\/>/);
+});
+
+test("总览粮仓区分冰箱与储物柜并统一确认删除",async()=>{
+  const dashboard=await readFile(new URL("../components/Dashboard.tsx",import.meta.url),"utf8");
+  const pantry=await readFile(new URL("../lib/pantry.ts",import.meta.url),"utf8");
+  assert.match(dashboard,/我的粮仓/);
+  assert.match(dashboard,/线上储物柜/);
+  assert.match(dashboard,/删除队列/);
+  assert.match(dashboard,/确认统一删除/);
+  assert.match(pantry,/storage_location/);
+  assert.match(pantry,/removePantryItems/);
 });
