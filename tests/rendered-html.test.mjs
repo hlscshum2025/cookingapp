@@ -111,6 +111,7 @@ test("导入中心读取 source_videos 并串联播放与手工录入", async ()
   assert.match(imports,/source-review-card/);
   assert.match(imports,/is-floating/);
   assert.match(imports,/import-platform-nav/);
+  assert.match(imports,/import-platform-shell/);
   assert.match(imports,/UniversalSourceImport platform="xiaohongshu"/);
   assert.match(imports,/UniversalSourceImport platform="xiachufang"/);
   assert.match(imports,/PlatformFeedbackForm/);
