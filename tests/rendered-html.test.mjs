@@ -127,7 +127,8 @@ test("四语言骨架会保存账号 locale 且不改写用户菜谱正文", asy
 test("设置页区分环境配置、用户登录和当前数据模式并可设置密码", async () => {
   const source=await readFile(new URL("../app/settings/page.tsx",import.meta.url),"utf8");
   assert.match(source,/站点配置不可用/);
-  assert.match(source,/已连接 Supabase/);
+  assert.match(source,/cloudStatus==="connected"\?"连接有效"/);
+  assert.match(source,/environment-status/);
   assert.match(source,/设置账号登录密码/);
   assert.match(source,/updateUser\(\{password:newPassword\}\)/);
   assert.match(source,/finally\{setPasswordBusy\(false\);\}/);
