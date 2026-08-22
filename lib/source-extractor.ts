@@ -134,7 +134,8 @@ function looksAmountOnly(line:string){return new RegExp(`^${amountToken}\\s*${un
 
 function xiachufangFallback(html:string):ExtractedRecipeContent|undefined{
   const lines=htmlToLines(html);
-  const ingredientStart=lines.findIndex(line=>/^用料\b/.test(line));
+  // JavaScript 的 \b 只识别 ASCII 单词边界，不能用来判断中文标题“用料”。
+  const ingredientStart=lines.findIndex(line=>/^用料(?:\s|$)/.test(line));
   const methodStart=lines.findIndex((line,index)=>index>Math.max(ingredientStart,0)&&(/做法步骤/.test(line)||(/的做法/.test(line)&&line.length<120)));
   const ingredients:Array<{name:string;amount:string;unit:string}>=[];
   if(ingredientStart>=0&&methodStart>ingredientStart){
@@ -186,7 +187,9 @@ export function extractRecipeFromNoteText(text:string):ExtractedRecipeContent|un
 }
 
 function safeTitle(value:string,platform:SourceExtractionPlatform){
-  return plainText(value).replace(/[_-]?下厨房$/i,"").replace(/\s*[|｜]\s*小红书.*$/i,"").replace(/\s*-\s*小红书.*$/i,"").trim()||`${platform==="xiachufang"?"下厨房":"小红书"}待整理来源`;
+  let title=plainText(value).replace(/[_-]?下厨房$/i,"").replace(/\s*[|｜]\s*小红书.*$/i,"").replace(/\s*-\s*小红书.*$/i,"").trim();
+  if(platform==="xiachufang")title=title.replace(/^【步骤图】\s*/,"").replace(/的做法_(?:.|\s)*$/," ").trim();
+  return title||`${platform==="xiachufang"?"下厨房":"小红书"}待整理来源`;
 }
 
 export function extractSourcePage(html:string,url:string,platform:SourceExtractionPlatform):SourceExtractionResult{
