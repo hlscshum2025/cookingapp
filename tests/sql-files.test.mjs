@@ -25,6 +25,13 @@ test("线上冰箱 migration 开启 owner-only RLS 且不授权 anon", async()=>
   assert.match(sql,/for delete\s+to authenticated\s+using \(\(select auth\.uid\(\)\) = owner_id\)/i);
 });
 
+test("我的粮仓 migration 限制存放位置并提供查询索引", async()=>{
+  const sql=await readFile(new URL("../supabase/migrations/202608220001_pantry_storage_location.sql",import.meta.url),"utf8");
+  assert.match(sql,/storage_location text not null default 'fridge'/i);
+  assert.match(sql,/storage_location in \('fridge','cabinet'\)/i);
+  assert.match(sql,/pantry_items\(owner_id,storage_location,updated_at desc\)/i);
+});
+
 test("反馈队列允许用户提交自己的反馈并限制管理员审核",async()=>{
   const sql=await readFile(new URL("../supabase/migrations/202608220001_feedback_submissions.sql",import.meta.url),"utf8");
   assert.match(sql,/alter table public\.feedback_submissions enable row level security/i);
