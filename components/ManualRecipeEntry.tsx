@@ -7,6 +7,7 @@ import { useCooking } from "./CookingProvider";
 import {
   createDraftFromSource,
   createManualRowId,
+  mergeStoredManualDraftWithSource,
   prepareManualEntryPayload,
   type ManualEvidence,
   type ManualRecipeDraft,
@@ -49,7 +50,7 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
     const fresh=createDraftFromSource(initialSource);
     try{
       const stored=window.localStorage.getItem(storageKey);
-      setDraft(stored?JSON.parse(stored) as ManualRecipeDraft:fresh);
+      setDraft(stored?mergeStoredManualDraftWithSource(JSON.parse(stored) as ManualRecipeDraft,initialSource):fresh);
     }catch{
       setDraft(fresh);
     }

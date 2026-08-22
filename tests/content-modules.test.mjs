@@ -4,8 +4,9 @@ import { readFile } from "node:fs/promises";
 
 import { calculateRecipeCost, convertAmount } from "../lib/costing.ts";
 import { groupIngredientTranslations } from "../lib/ingredient-sourcing.ts";
+import { findKitchenEntry,getKitchenDisplayName,searchKitchenDictionary } from "../lib/kitchen-dictionary.ts";
 import { parseBilibiliSubtitleExport, sampleCandidateRecipes } from "../lib/video-review.ts";
-import { createDraftFromSource, prepareManualEntryPayload } from "../lib/manual-entry.ts";
+import { createBlankManualDraft,createDraftFromSource,mergeStoredManualDraftWithSource,prepareManualEntryPayload } from "../lib/manual-entry.ts";
 
 test("字幕导出 JSON 会规范化时间轴和 AI 标记", () => {
   const parsed = parseBilibiliSubtitleExport({
@@ -44,6 +45,31 @@ test("来源视频会自动带入手动录入所需字段", () => {
   assert.equal(draft.recipe.title,"测试菜谱");
 });
 
+test("下厨房新读取的结构化食材会替换旧草稿中的空占位行",()=>{
+  const stored=createBlankManualDraft();
+  stored.source.platform="xiachufang";
+  stored.source.externalId="107123456";
+  stored.recipe.title="番茄牛腩";
+  const merged=mergeStoredManualDraftWithSource(stored,{
+    id:"source-xcf-1",platform:"xiachufang",externalId:"107123456",url:"https://www.xiachufang.com/recipe/107123456/",title:"番茄牛腩",uploaderName:"测试作者",coverUrl:"",description:"来源简介",availability:"available",updatedAt:"2026-08-22T00:00:00Z",
+    extractedRecipe:{summary:"家常炖煮",ingredients:[{name:"牛腩",amount:"600",unit:"克"},{name:"番茄",amount:"3",unit:"个"}],steps:["牛腩焯水","加入番茄炖煮"],extractionMethod:"json_ld"},
+  });
+  assert.deepEqual(merged.recipe.ingredients.map(item=>item.name),["牛腩","番茄"]);
+  assert.deepEqual(merged.recipe.steps.map(item=>item.instruction),["牛腩焯水","加入番茄炖煮"]);
+});
+
+test("下厨房结构化更新不会覆盖用户已填写的食材和步骤",()=>{
+  const stored=createBlankManualDraft();
+  stored.recipe.ingredients=[{id:"mine",name:"我核验过的牛腩",amount:"500",unit:"克",evidence:{kind:"manual"}}];
+  stored.recipe.steps=[{id:"step",instruction:"保留我的做法",evidence:{kind:"manual"}}];
+  const merged=mergeStoredManualDraftWithSource(stored,{
+    id:"source-xcf-2",platform:"xiachufang",externalId:"107123456",url:"https://www.xiachufang.com/recipe/107123456/",title:"番茄牛腩",uploaderName:"",coverUrl:"",description:"",availability:"available",updatedAt:"2026-08-22T00:00:00Z",
+    extractedRecipe:{ingredients:[{name:"番茄",amount:"3",unit:"个"}],steps:["自动步骤"],extractionMethod:"json_ld"},
+  });
+  assert.equal(merged.recipe.ingredients[0].name,"我核验过的牛腩");
+  assert.equal(merged.recipe.steps[0].instruction,"保留我的做法");
+});
+
 test("两个样本拆成四份候选来源菜谱且不猜酸奶酱克数", () => {
   assert.equal(sampleCandidateRecipes.length, 4);
   assert.equal(sampleCandidateRecipes[0].ingredients.length, 6);
@@ -55,6 +81,15 @@ test("翻译词条按德国普通超市和亚超分区", () => {
   assert.ok(grouped.germanSupermarket.some((item) => item.de === "Filet"));
   assert.ok(grouped.germanSupermarket.some((item) => item.de === "Dattel"));
   assert.ok(grouped.asianMarket.some((item) => item.zh === "生抽"));
+});
+
+test("繁中地区词汇命中同一 canonical 厨房词条",()=>{
+  const potato=findKitchenEntry("馬鈴薯","ingredient");
+  const broccoli=findKitchenEntry("青花菜","ingredient");
+  assert.equal(potato?.id,"potato");
+  assert.equal(broccoli?.id,"broccoli");
+  assert.equal(getKitchenDisplayName(potato,"zh-TW"),"馬鈴薯");
+  assert.ok(searchKitchenDictionary("里肌","ingredient").some(item=>item.id==="pork-tenderloin"));
 });
 
 test("成本核算支持单位换算、按次数均摊和每人份", () => {

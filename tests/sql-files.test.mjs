@@ -39,3 +39,23 @@ test("反馈队列允许用户提交自己的反馈并限制管理员审核",asy
   assert.match(sql,/for insert to authenticated[\s\S]+auth\.uid\(\)\)=owner_id[\s\S]+status='new'/i);
   assert.match(sql,/for update to authenticated[\s\S]+using \(private\.is_current_admin\(\)\)[\s\S]+with check \(private\.is_current_admin\(\)\)/i);
 });
+
+test("小票 OCR migration 保持原图、原始识别和采购记录为 owner-only",async()=>{
+  const sql=await readFile(new URL("../supabase/migrations/202608220002_receipt_ocr_schema.sql",import.meta.url),"utf8");
+  for(const table of ["shopping_receipts","receipt_ocr_runs","shopping_receipt_items","purchase_records","ingredient_market_aliases"]){
+    assert.match(sql,new RegExp(`create table if not exists public\\.${table}`,"i"));
+    assert.match(sql,new RegExp(`alter table public\\.${table} enable row level security`,"i"));
+  }
+  assert.match(sql,/revoke all privileges on table[\s\S]+from anon, authenticated/i);
+  assert.match(sql,/create policy[\s\S]+for select to authenticated using \(\(select auth\.uid\(\)\)=owner_id\)/i);
+  assert.match(sql,/verification_status in \('unverified','user_verified','rejected'\)/i);
+  assert.match(sql,/receipt-images[\s\S]+public=false/i);
+});
+
+test("小票 OCR owner 复合外键都有覆盖索引",async()=>{
+  const sql=await readFile(new URL("../supabase/migrations/202608220003_receipt_ocr_fk_indexes.sql",import.meta.url),"utf8");
+  assert.match(sql,/receipt_ocr_runs\(receipt_id,owner_id,created_at desc\)/i);
+  assert.match(sql,/shopping_receipt_items\(receipt_id,owner_id,created_at\)/i);
+  assert.match(sql,/shopping_receipt_items\(ocr_run_id,owner_id\)/i);
+  assert.match(sql,/purchase_records\(source_receipt_item_id,owner_id\)/i);
+});

@@ -148,6 +148,51 @@ export function createDraftFromSource(source?:SourceVideo):ManualRecipeDraft {
   };
 }
 
+function hasIngredientContent(draft:ManualRecipeDraft){
+  return draft.recipe.ingredients.some(item=>item.name.trim()||item.amount.trim()||item.unit.trim());
+}
+
+function hasStepContent(draft:ManualRecipeDraft){
+  return draft.recipe.steps.some(item=>item.instruction.trim());
+}
+
+/**
+ * Keep a user's real edits, but let a newer structured source replace the
+ * blank placeholder rows saved by an earlier local draft. This is important
+ * for sources such as Xiachufang: the link may be saved before the public page
+ * extraction finishes, so the local draft can otherwise hide newly extracted
+ * ingredients and steps forever.
+ */
+export function mergeStoredManualDraftWithSource(stored:ManualRecipeDraft,source?:SourceVideo):ManualRecipeDraft{
+  const fresh=createDraftFromSource(source);
+  if(!source?.extractedRecipe)return stored;
+  const shouldHydrateIngredients=!hasIngredientContent(stored)&&fresh.recipe.ingredients.some(item=>item.name.trim());
+  const shouldHydrateSteps=!hasStepContent(stored)&&fresh.recipe.steps.some(item=>item.instruction.trim());
+  if(!shouldHydrateIngredients&&!shouldHydrateSteps)return stored;
+  return {
+    ...stored,
+    source:{
+      ...stored.source,
+      description:stored.source.description.trim()?stored.source.description:fresh.source.description,
+      coverUrl:stored.source.coverUrl.trim()?stored.source.coverUrl:fresh.source.coverUrl,
+    },
+    recipe:{
+      ...stored.recipe,
+      title:stored.recipe.title.trim()?stored.recipe.title:fresh.recipe.title,
+      summary:stored.recipe.summary.trim()?stored.recipe.summary:fresh.recipe.summary,
+      ingredients:shouldHydrateIngredients?fresh.recipe.ingredients:stored.recipe.ingredients,
+      steps:shouldHydrateSteps?fresh.recipe.steps:stored.recipe.steps,
+      versionNote:stored.recipe.versionNote.trim()&&stored.recipe.versionNote!==createBlankManualDraft().recipe.versionNote
+        ?stored.recipe.versionNote
+        :fresh.recipe.versionNote,
+    },
+    review:{
+      ...stored.review,
+      note:stored.review.note.trim()?stored.review.note:fresh.review.note,
+    },
+  };
+}
+
 function trimOrUndefined(value?: string) {
   const trimmed = value?.trim();
   return trimmed || undefined;

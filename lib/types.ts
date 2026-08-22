@@ -85,6 +85,7 @@ export type PublicationRequest = {
 export type IngredientMapping = {
   id: string;
   zh: string;
+  zhTW?: string;
   en: string;
   de: string;
   category: string;

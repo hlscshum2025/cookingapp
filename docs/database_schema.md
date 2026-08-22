@@ -123,7 +123,7 @@ supabase/migrations/
 
 ## 8. V2 计划扩展：德国小票 OCR、采购事实与市场别名
 
-> 状态：**数据库设计草案，尚未生成/执行 migration。** 实际 DEV / PROD 同步状态以 [`03_dev_prod_database_sync.md`](./03_dev_prod_database_sync.md) 为准。
+> 状态：**两个 migration 已在 DEV 执行并验证，PROD 待同步。** 实际 DEV / PROD 同步状态以 [`03_dev_prod_database_sync.md`](./03_dev_prod_database_sync.md) 为准。
 
 ### 8.1 分层原则
 
@@ -134,7 +134,7 @@ shopping_receipts + receipt_ocr_runs
           ↓
 shopping_receipt_items（候选，允许错误/空字段）
           ↓
-ingredient_market_aliases → ingredients.id
+ingredient_market_aliases → stable canonical ingredient key
           ↓
 用户确认
           ↓
@@ -158,12 +158,13 @@ purchase_records（可被成本/库存使用的事实）
 - `id uuid primary key`
 - `owner_id uuid not null`
 - `store_name text`
-- `store_country text default 'DE'`
+- `store_country text null`（ISO 两位大写）
 - `purchased_at timestamptz`
 - `currency text default 'EUR'`
 - `total_amount numeric`
-- `media_id uuid null`
-- `status text`：`uploaded / parsed / needs_review / confirmed / archived`
+- `image_bucket text default 'receipt-images'`
+- `image_path text null`
+- `status text`：`uploaded / processing / needs_review / confirmed / failed / archived`
 - `created_at / updated_at`
 
 用途：代表一张真实小票。原图通过私有 Storage / `media` 引用，不进入公开分享。
@@ -175,7 +176,7 @@ purchase_records（可被成本/库存使用的事实）
 - `id uuid primary key`
 - `owner_id uuid not null`
 - `receipt_id uuid not null`
-- `provider text`：`paddleocr / apple_vision / mlkit / manual / other`
+- `provider text`：`paddleocr / apple_vision / mlkit / manual`
 - `model_version text`
 - `preprocess_version text`
 - `raw_text text`
@@ -193,9 +194,10 @@ purchase_records（可被成本/库存使用的事实）
 - `owner_id uuid not null`
 - `receipt_id uuid not null`
 - `ocr_run_id uuid null`
-- `raw_text text not null`
+- `raw_text text null`
 - `raw_product_name text`
-- `ingredient_id uuid null`
+- `ingredient_id text null`
+- `canonical_ingredient_key text null`
 - `quantity numeric null`
 - `quantity_unit text null`
 - `package_amount numeric null`
@@ -215,7 +217,8 @@ purchase_records（可被成本/库存使用的事实）
 
 - `id uuid primary key`
 - `owner_id uuid not null`
-- `ingredient_id uuid not null`
+- `ingredient_id text null`
+- `canonical_ingredient_key text null`
 - `source_receipt_item_id uuid null`
 - `store_name text`
 - `purchased_at timestamptz`
@@ -235,43 +238,47 @@ purchase_records（可被成本/库存使用的事实）
 建议字段：
 
 - `id uuid primary key`
-- `ingredient_id uuid not null`
+- `owner_id uuid not null`
+- `ingredient_id text null`
+- `canonical_ingredient_key text not null`
 - `country_code text`
 - `locale text`
 - `store_name text null`
 - `alias text not null`
+- `normalized_alias text not null`
 - `source text`
 - `verification_status text`
 - `last_seen_at timestamptz`
 - `created_at / updated_at`
 
-用途：将德国超市小票里的商品名/缩写映射回现有 canonical `ingredients.id`，再由显示层选择简中、台湾繁中、英文或德文名称。不要为同一个土豆/馬鈴薯/Kartoffel 创建多个 ingredient 实体。
+用途：将德国超市小票里的商品名/缩写映射到稳定 canonical key，再由显示层选择简中、台湾繁中、英文或德文名称。不要为同一个土豆/馬鈴薯/Kartoffel 创建多个 ingredient 实体。V2 当前先保存为 owner-only 个人别名。
 
 ### 8.3 计划索引和约束
 
 - `shopping_receipts(owner_id, purchased_at desc)`；
-- `receipt_ocr_runs(receipt_id, created_at desc)`；
-- `shopping_receipt_items(receipt_id, verification_status)`；
-- `shopping_receipt_items(ingredient_id)`；
+- `receipt_ocr_runs(receipt_id, owner_id, created_at desc)`；
+- `shopping_receipt_items(receipt_id, owner_id, created_at)`；
+- `shopping_receipt_items(ocr_run_id, owner_id)`；
 - `purchase_records(owner_id, purchased_at desc)`；
-- `purchase_records(ingredient_id, purchased_at desc)`；
-- `ingredient_market_aliases(country_code, lower(alias))` 使用合适的唯一/近似搜索策略；
+- `purchase_records(source_receipt_item_id, owner_id)`；
+- `ingredient_market_aliases(owner_id, country_code, locale, normalized_alias)`；
 - 金额、数量不得为负；`confidence` 若保存为 0–1 则加 check constraint；
 - 删除小票时如何保留已经确认的 `purchase_records` 必须在 migration 前明确：建议采购事实保留，来源引用置空或采用受控软删除。
 
 ### 8.4 RLS 计划
 
-- `shopping_receipts`、`receipt_ocr_runs`、`shopping_receipt_items`、`purchase_records`：owner-only；
+- 五张表均已启用 owner-only RLS；每表具有 select/insert/update/delete 四条 authenticated policy，anon 无表权限；
 - 小票原图、raw OCR JSON 永不进入匿名公开接口；
-- `ingredient_market_aliases` 分为“公共审校词条”和“用户私有经验”时，不要用一个宽松 policy 混在一起；实现前决定增加 `owner_id nullable` 还是拆公共/个人表；
+- `receipt-images` bucket 已设为 private，并按 `<owner_id>/...` 路径限制读写；
+- `ingredient_market_aliases` 当前只保存用户私有经验；以后若加入公共审校词条，应拆表或建立独立严格 policy，不能放宽现有 owner-only policy；
 - 所有从 OCR 到库存/成本的写入必须经过已认证用户和确认动作，不能允许匿名识别结果触发业务更新。
 
 ### 8.5 Migration 门禁
 
-1. 先在代码中冻结 `ReceiptOcrDraft` / purchase 数据契约；
-2. 写 migration；
-3. 只在 DEV 执行；
-4. 加 RLS、FK、索引和数据校验测试；
-5. 把 `03` 中对应计划项改成 `待同步 PROD`；
-6. DEV 实机确认后再同步 PROD；
-7. 发布 Sites 前再次检查 `03` 无待同步项。
+1. [x] 冻结第一版 receipt / purchase 数据字段；
+2. [x] 写入 `202608220002_receipt_ocr_schema.sql` 与 `202608220003_receipt_ocr_fk_indexes.sql`；
+3. [x] 只在 DEV 执行；
+4. [x] 验证 RLS、grants、复合 owner FK、覆盖索引和 Storage policy；
+5. [x] 把 `03` 更新为 `待同步 PROD`；
+6. [ ] DEV 实机确认后再同步 PROD；
+7. [ ] 用户明确要求发布时，先检查 `03` 无待同步项，再发布 Sites。

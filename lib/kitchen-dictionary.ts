@@ -1,3 +1,5 @@
+import type { AppLocale } from "./i18n";
+
 export type KitchenEntryKind="ingredient"|"tool";
 export type PurchaseChannel="german_supermarket"|"asian_market"|"both"|"not_applicable";
 
@@ -166,6 +168,68 @@ export const purchaseChannelLabels:Record<PurchaseChannel,string>={
   not_applicable:"不适用",
 };
 
+// Curated Taiwan usage. Only entries whose preferred display differs from the
+// zh-CN canonical label need an override; every entry keeps the same stable id.
+const zhTwKitchenNames:Record<string,string>={
+  scallion:"青蔥",ginger:"薑",garlic:"蒜頭",potato:"馬鈴薯",onion:"洋蔥","red-onion":"紫洋蔥",
+  cucumber:"小黃瓜",carrot:"紅蘿蔔",daikon:"白蘿蔔","bell-pepper":"甜椒","pointed-pepper":"糯米椒",
+  "bird-eye-chili":"小辣椒","napa-cabbage":"大白菜","bok-choy":"青江菜",lettuce:"萵苣",celery:"西洋芹",
+  broccoli:"青花菜",cauliflower:"白花椰菜","lotus-root":"蓮藕",yam:"山藥",corn:"玉米",enoki:"金針菇",
+  lemon:"檸檬",lime:"萊姆",apple:"蘋果","chicken-thigh":"雞腿","chicken-breast":"雞胸肉",
+  "pork-tenderloin":"豬里肌","ground-beef":"牛絞肉",salmon:"鮭魚",shrimp:"蝦","sticky-rice":"糯米",
+  "wheat-flour":"中筋麵粉","cake-flour":"低筋麵粉","bread-flour":"高筋麵粉",cornstarch:"玉米澱粉",
+  "potato-starch":"太白粉","sweet-potato-starch":"地瓜粉",noodles:"麵條",salt:"鹽",sugar:"砂糖",
+  "light-soy":"醬油（生抽）","dark-soy":"老抽／深色醬油","oyster-sauce":"蠔油","shaoxing-wine":"料理米酒／紹興酒",
+  "chinkiang-vinegar":"鎮江香醋","aged-vinegar":"陳醋","sesame-oil":"麻油","neutral-oil":"食用油",
+  "bay-leaf":"月桂葉","kitchen-scale":"廚房秤","measuring-spoons":"量匙","mixing-bowl":"攪拌盆",
+  "silicone-spatula":"矽膠刮刀","pastry-brush":"料理刷",colander:"瀝水籃",
+};
+
+const zhTwKitchenAliases:Record<string,string[]>={
+  potato:["土豆","洋芋","馬鈴薯"],
+  broccoli:["西蘭花","綠花椰菜","青花菜"],
+  cauliflower:["菜花","花菜","花椰菜","白花椰菜"],
+  "bok-choy":["小白菜","上海青","油菜","青江菜"],
+  celery:["芹菜","西芹","西洋芹"],
+  "pork-tenderloin":["豬里脊","里脊肉","豬柳","豬里肌","里肌肉"],
+  salmon:["三文魚","鮭魚"],
+  cornstarch:["玉米澱粉","粟粉","太白粉"],
+  "light-soy":["生抽","醬油","薄鹽醬油"],
+  "shaoxing-wine":["料酒","紹興酒","黃酒","料理米酒","米酒"],
+  "sesame-oil":["香油","芝麻油","麻油"],
+};
+
+const zhTwCategoryNames:Record<string,string>={
+  "根茎":"根莖","叶菜":"葉菜","菌菇":"菇菌","猪肉":"豬肉","水产":"水產","淀粉":"澱粉",
+  "中式调味":"中式調味","基础调味":"基礎調味","复合调味":"複合調味料","香辛料":"辛香料",
+  "烘焙主食":"烘焙主食","烘焙工具":"烘焙工具","烹饪工具":"烹飪工具","计量工具":"計量工具",
+  "容器":"容器","蔬菜":"蔬菜","香草":"香草","水果":"水果","主食":"主食","禽肉":"禽肉",
+  "牛肉":"牛肉","羊肉":"羊肉","豆制品":"豆製品","油脂":"油脂","醋":"醋","辣椒":"辣椒",
+};
+
+export function getKitchenDisplayName(entry:KitchenDictionaryEntry,locale:AppLocale){
+  if(locale==="zh-TW")return zhTwKitchenNames[entry.id]||entry.zh;
+  if(locale==="en")return entry.en||entry.zh;
+  if(locale==="de")return entry.de||entry.en||entry.zh;
+  return entry.zh;
+}
+
+export function getKitchenAliases(entry:KitchenDictionaryEntry,locale:AppLocale){
+  if(locale==="zh-TW")return Array.from(new Set([...(zhTwKitchenAliases[entry.id]||[]),entry.zh,...entry.aliases])).filter(name=>name!==getKitchenDisplayName(entry,locale));
+  return entry.aliases;
+}
+
+export function getKitchenCategory(entry:KitchenDictionaryEntry,locale:AppLocale){
+  return locale==="zh-TW"?(zhTwCategoryNames[entry.category]||entry.category):entry.category;
+}
+
+export function getPurchaseChannelLabel(channel:PurchaseChannel,locale:AppLocale){
+  if(locale==="zh-TW")return ({german_supermarket:"德國一般超市",asian_market:"亞洲超市優先",both:"德國超市／亞洲超市均可",not_applicable:"不適用"} as const)[channel];
+  if(locale==="en")return ({german_supermarket:"German supermarket",asian_market:"Asian market preferred",both:"German or Asian market",not_applicable:"Not applicable"} as const)[channel];
+  if(locale==="de")return ({german_supermarket:"Deutscher Supermarkt",asian_market:"Asiamarkt bevorzugt",both:"Supermarkt oder Asiamarkt",not_applicable:"Nicht zutreffend"} as const)[channel];
+  return purchaseChannelLabels[channel];
+}
+
 function normalize(value:string){return value.trim().toLowerCase().replace(/[\s·・\/（）()]+/g,"");}
 
 export function findKitchenEntry(name:string,kind?:KitchenEntryKind){
@@ -173,7 +237,7 @@ export function findKitchenEntry(name:string,kind?:KitchenEntryKind){
   if(!target)return undefined;
   return kitchenDictionary.find(entry=>{
     if(kind&&entry.kind!==kind)return false;
-    return [entry.zh,...entry.aliases].some(alias=>normalize(alias)===target);
+    return [entry.zh,zhTwKitchenNames[entry.id]||"",...(zhTwKitchenAliases[entry.id]||[]),...entry.aliases,entry.en,entry.de].some(alias=>normalize(alias)===target);
   });
 }
 
@@ -182,6 +246,6 @@ export function searchKitchenDictionary(query:string,kind:"all"|KitchenEntryKind
   return kitchenDictionary.filter(entry=>{
     if(kind!=="all"&&entry.kind!==kind)return false;
     if(!target)return true;
-    return [entry.zh,...entry.aliases,entry.en,entry.de,entry.category,entry.shelfHint||"",entry.note||""].join(" ").toLowerCase().includes(target);
+    return [entry.zh,zhTwKitchenNames[entry.id]||"",...(zhTwKitchenAliases[entry.id]||[]),...entry.aliases,entry.en,entry.de,entry.category,zhTwCategoryNames[entry.category]||"",entry.shelfHint||"",entry.note||""].join(" ").toLowerCase().includes(target);
   });
 }
