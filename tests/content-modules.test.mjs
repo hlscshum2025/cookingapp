@@ -81,5 +81,6 @@ test("导航已经接入主入口和移动端更多菜单", async () => {
   assert.match(source, /mobileMore/);
   assert.match(source, /t\("nav\.more"\)/);
   assert.match(source, /mobile-account-card/);
-  assert.match(source, /LanguageSelect compact/);
+  assert.match(source, /account-menu-language/);
+  assert.match(source, /cloudStatus!=="connected"/);
 });
