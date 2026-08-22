@@ -3,7 +3,7 @@
 把 B 站、下厨房、小红书和其他来源中真正值得保留的菜谱，整理成一个可搜索、可修改、可记录个人经验，并适合在德国实际采购和做饭使用的个人厨房知识系统。
 
 **当前正式版本：CookingApp-V2（初步应用版）**  
-V1 已结项，V1 的技术经验、历史范围、旧初始化步骤和验收记录统一归档到 [`docs/00_v1_technical_experience.md`](docs/00_v1_technical_experience.md)。当前版本的开发任务统一看 [`docs/02_v2_workboard.md`](docs/02_v2_workboard.md)。
+V1 已结项，V1 的技术经验、历史范围、旧初始化步骤和验收记录统一归档到 [`docs/00_v1_technical_experience.md`](docs/00_v1_technical_experience.md)。V2 的历史工作流程记录在 [`docs/00_v2_development_history.md`](docs/00_v2_development_history.md)，当前任务统一看 [`docs/02_v2_workboard.md`](docs/02_v2_workboard.md)。
 
 ## 1. 当前产品定位
 
@@ -280,6 +280,7 @@ Sites 发布
 ## 10. 关键文档
 
 - [`docs/00_v1_technical_experience.md`](docs/00_v1_technical_experience.md)：V1 结项、历史操作和技术经验
+- [`docs/00_v2_development_history.md`](docs/00_v2_development_history.md)：V2 实际研发顺序、方案变化和经验沉淀
 - [`docs/01_product_roadmap.md`](docs/01_product_roadmap.md)：全生命周期版本路线图
 - [`docs/02_v2_workboard.md`](docs/02_v2_workboard.md)：V2 当前实际任务和验收状态
 - [`docs/03_dev_prod_database_sync.md`](docs/03_dev_prod_database_sync.md)：DEV / PROD 数据库差异与发布门禁

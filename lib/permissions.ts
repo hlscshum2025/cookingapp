@@ -7,6 +7,7 @@ export type AppPermission =
   | "backup.restore_merge_own"
   | "backup.restore_replace_own"
   | "admin.review_publications"
+  | "admin.review_feedback"
   | "admin.diagnostics";
 
 const rolePermissions:Record<AppRole,ReadonlySet<AppPermission>>={
@@ -25,6 +26,7 @@ const rolePermissions:Record<AppRole,ReadonlySet<AppPermission>>={
     "backup.restore_merge_own",
     "backup.restore_replace_own",
     "admin.review_publications",
+    "admin.review_feedback",
     "admin.diagnostics",
   ]),
 };

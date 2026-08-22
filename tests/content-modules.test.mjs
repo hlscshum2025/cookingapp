@@ -79,5 +79,7 @@ test("导航已经接入主入口和移动端更多菜单", async () => {
   assert.match(source, /\/costs/);
   assert.doesNotMatch(source, /\/manual-entry/);
   assert.match(source, /mobileMore/);
-  assert.match(source, />更多<\/button>/);
+  assert.match(source, /t\("nav\.more"\)/);
+  assert.match(source, /mobile-account-card/);
+  assert.match(source, /LanguageSelect compact/);
 });

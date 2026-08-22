@@ -29,7 +29,7 @@
 
 ## 当前结构状态
 
-**2026-08-18：DEV 与 PROD 的已实施数据库对象结构仍保持对齐；V2 小票 OCR 数据结构目前仅处于设计阶段，尚未在任一环境执行 migration。**
+**2026-08-22：DEV 与 PROD 的已实施数据库对象结构保持对齐；两个项目均为 `ACTIVE_HEALTHY`。反馈队列 migration 已在两边执行并验证，V2 小票 OCR 与词典提案结构仍仅处于设计阶段。**
 
 已核对范围：
 
@@ -50,6 +50,7 @@
 | 2026-08-11 | 补齐常用 owner / FK 查询索引：`cooking_logs_owner_cooked_idx`、`import_items_owner_idx`、`import_items_recipe_idx`、`import_items_source_video_idx`、`recipe_tags_owner_idx`、`recipe_tags_tag_idx`、`recipe_versions_owner_idx` | `20260811112654_add_missing_foreign_key_indexes.sql` | 2026-08-14 补齐 | 原已存在 | **已同步** | 之前出现 PROD 有、DEV 缺失的反向漂移；现已一致 |
 | 2026-08-13 | 公开菜谱点赞：`public_recipes.like_count`、`public_recipe_likes`、RLS、计数 Trigger / private Function | `202608130001_public_recipe_likes.sql` | 已验证 | 2026-08-14 补齐 | **已同步** | 网页点赞功能依赖此结构；未同步时不可发布对应前端 |
 | 2026-08-14 | 线上冰箱：`pantry_items`、owner-only RLS、账号级库存 | `202608130002_pantry_items.sql` | 已存在并验证 | 已存在并验证 | **已同步** | 业务数据独立；结构一致不代表库存数据相同 |
+| 2026-08-22 | 用户反馈队列：`feedback_submissions`、owner/admin RLS、队列和外键索引 | `202608220001_feedback_submissions.sql` | 已执行并验证 | 已执行并验证 | **已同步** | 登录用户只能读自己的反馈并提交 `new/P3`；管理员可读全体并更新；anon 无权限 |
 
 ## 2026-08-14 DEV → PROD 增量业务数据合并
 
@@ -156,7 +157,7 @@ DEV → PROD 的测试数据合并不得通过整库覆盖完成。推荐规则�
 
 **无。**
 
-V2 小票 OCR 表目前仍是上面的“计划结构变化”，没有在 DEV 或 PROD 建表，因此不属于待同步项。
+V2 小票 OCR 表、词典四分类和用户词汇提案目前仍是“计划结构变化”，没有在 DEV 或 PROD 建表，因此不属于待同步项。
 
 下次在 DEV 修改数据库结构时，先在本节加入：
 

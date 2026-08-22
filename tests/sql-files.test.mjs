@@ -24,3 +24,11 @@ test("线上冰箱 migration 开启 owner-only RLS 且不授权 anon", async()=>
   assert.match(sql,/for update\s+to authenticated[\s\S]+using \(\(select auth\.uid\(\)\) = owner_id\)[\s\S]+with check \(\(select auth\.uid\(\)\) = owner_id\)/i);
   assert.match(sql,/for delete\s+to authenticated\s+using \(\(select auth\.uid\(\)\) = owner_id\)/i);
 });
+
+test("反馈队列允许用户提交自己的反馈并限制管理员审核",async()=>{
+  const sql=await readFile(new URL("../supabase/migrations/202608220001_feedback_submissions.sql",import.meta.url),"utf8");
+  assert.match(sql,/alter table public\.feedback_submissions enable row level security/i);
+  assert.match(sql,/revoke all privileges on table public\.feedback_submissions from anon, authenticated/i);
+  assert.match(sql,/for insert to authenticated[\s\S]+auth\.uid\(\)\)=owner_id[\s\S]+status='new'/i);
+  assert.match(sql,/for update to authenticated[\s\S]+using \(private\.is_current_admin\(\)\)[\s\S]+with check \(private\.is_current_admin\(\)\)/i);
+});

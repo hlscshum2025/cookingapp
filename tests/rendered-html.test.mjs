@@ -110,7 +110,18 @@ test("导入中心读取 source_videos 并串联播放与手工录入", async ()
   assert.match(imports,/initialSource=\{selected\}/);
   assert.match(imports,/source-review-card/);
   assert.match(imports,/is-floating/);
-  assert.match(imports,/一键自动导入放到第三版/);
+  assert.match(imports,/import-platform-nav/);
+  assert.match(imports,/UniversalSourceImport platform="xiaohongshu"/);
+  assert.match(imports,/UniversalSourceImport platform="xiachufang"/);
+  assert.match(imports,/PlatformFeedbackForm/);
+  assert.match(imports,/OCR 开发中/);
+});
+
+test("四语言骨架会保存账号 locale 且不改写用户菜谱正文", async()=>{
+  const source=await readFile(new URL("../lib/i18n.tsx",import.meta.url),"utf8");
+  assert.match(source,/"zh-CN","zh-TW","en","de"/);
+  assert.match(source,/from\("profiles"\)\.update\(\{locale:next\}\)/);
+  assert.match(source,/User-authored recipe content is never rewritten/);
 });
 
 test("设置页区分环境配置、用户登录和当前数据模式并可设置密码", async () => {

@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { CookingProvider } from "@/components/CookingProvider";
 import { ShoppingCartProvider } from "@/components/ShoppingCartProvider";
 import { FloatingRecipeCart } from "@/components/FloatingRecipeCart";
+import { LocaleProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "CookingApp · 我的做菜知识库",
@@ -19,10 +20,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="zh-CN">
       <body>
         <CookingProvider>
-          <ShoppingCartProvider>
-            <AppShell>{children}</AppShell>
-            <FloatingRecipeCart/>
-          </ShoppingCartProvider>
+          <LocaleProvider>
+            <ShoppingCartProvider>
+              <AppShell>{children}</AppShell>
+              <FloatingRecipeCart/>
+            </ShoppingCartProvider>
+          </LocaleProvider>
         </CookingProvider>
       </body>
     </html>

@@ -48,6 +48,17 @@ erDiagram
 | share_links | id, owner_id, resource_type, resource_id, token_hash, expires_at, active | 只读分享 | 实现 |
 | external_food_refs | id, ingredient_id, provider, external_id, url, last_synced_at | Open Food Facts 等外部引用 | 仅预留 |
 
+### V2 已实施补充表
+
+| 表 | 关键字段 | 作用 | 状态 |
+|---|---|---|---|
+| user_roles | user_id, role | 独立于用户可编辑 profile 的管理员角色 | DEV / PROD 已实施 |
+| recipe_publication_requests | recipe_id, owner_id, snapshot, status, reviewed_by | 私人菜谱公开申请与审核 | DEV / PROD 已实施 |
+| public_recipes | recipe_id, publication_request_id, snapshot | 审核通过后的公开白名单快照 | DEV / PROD 已实施 |
+| public_recipe_likes | recipe_id, user_id | 公开菜谱账号级点赞 | DEV / PROD 已实施 |
+| pantry_items | owner_id, canonical_key, document | 账号级线上冰箱 | DEV / PROD 已实施 |
+| feedback_submissions | owner_id, category, title, details, context, status, priority, reviewed_by | 用户反馈与管理员审核队列 | 2026-08-22 DEV / PROD 已实施 |
+
 ## 4. 枚举与业务约束
 
 ### 菜谱状态
@@ -80,6 +91,7 @@ erDiagram
 | 公开/链接分享菜谱 | 读写 | 按权限读取 | 仅公开视图字段 |
 | cooking_logs | 读写 | 仅自己的 | 永不返回 |
 | import_jobs / raw_metadata | 读写 | 仅自己的 | 永不返回 |
+| feedback_submissions | 管理员审核全体 | 用户提交并读取自己的 | 永不可见 |
 | 公共食材词典 | 可维护 | 只读 | 只读 |
 
 分享页面通过受控数据库函数或服务端查询返回白名单字段，不能把 token 当作绕过 RLS 的万能权限。
