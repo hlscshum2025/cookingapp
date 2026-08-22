@@ -56,7 +56,7 @@ erDiagram
 | recipe_publication_requests | recipe_id, owner_id, snapshot, status, reviewed_by | 私人菜谱公开申请与审核 | DEV / PROD 已实施 |
 | public_recipes | recipe_id, publication_request_id, snapshot | 审核通过后的公开白名单快照 | DEV / PROD 已实施 |
 | public_recipe_likes | recipe_id, user_id | 公开菜谱账号级点赞 | DEV / PROD 已实施 |
-| pantry_items | owner_id, canonical_key, document | 账号级线上冰箱 | DEV / PROD 已实施 |
+| pantry_items | owner_id, canonical_key, document, storage_location | 账号级“我的粮仓”（线上冰箱 / 线上储物柜） | 2026-08-22 DEV / PROD 已实施 |
 | feedback_submissions | owner_id, category, title, details, context, status, priority, reviewed_by | 用户反馈与管理员审核队列 | 2026-08-22 DEV / PROD 已实施 |
 
 ## 4. 枚举与业务约束
