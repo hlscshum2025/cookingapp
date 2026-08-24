@@ -6,6 +6,8 @@ import { extractSourcePage,parseIngredientText } from "../lib/source-extractor.t
 test("食材文字拆成名称、用量和单位",()=>{
   assert.deepEqual(parseIngredientText("牛腩 600克"),{name:"牛腩",amount:"600",unit:"克"});
   assert.deepEqual(parseIngredientText("2勺 料酒"),{name:"料酒",amount:"2",unit:"勺"});
+  assert.deepEqual(parseIngredientText("500g鸡翅"),{name:"鸡翅",amount:"500",unit:"g"});
+  assert.deepEqual(parseIngredientText("2勺东古红烧酱油"),{name:"东古红烧酱油",amount:"2",unit:"勺"});
   assert.deepEqual(parseIngredientText("盐 适量"),{name:"盐",amount:"适量",unit:""});
 });
 
@@ -34,6 +36,37 @@ test("下厨房 MIP 中文用料标题会拆出食材与用量",()=>{
     {name:"大蒜",amount:"2",unit:"瓣"},
   ]);
   assert.equal(result.extractedRecipe?.steps.length,2);
+});
+
+test("下厨房 107345578 式页面即使缺少用料标题也从结构化行读取食材",()=>{
+  const html=`<html><head><title>【步骤图】可乐鸡翅的做法_可乐鸡翅的做法步骤_家常菜_下厨房</title></head><body>
+    <section id="ings"><div class="recipe-ingredient">
+      <a class="ing-line"><div class="ing-name">鸡翅</div><div class="ing-amount">500g</div></a>
+      <a class="ing-line"><div class="ing-name">姜片</div><div class="ing-amount">5g</div></a>
+      <a class="ing-line"><div class="ing-name">可乐</div><div class="ing-amount">300ml</div></a>
+    </div></section><section><h3>可乐鸡翅的做法步骤</h3>
+      <div>步骤 1</div><p>鲜鸡翅浸泡出血水，擦干水分。</p>
+    </section></body></html>`;
+  const result=extractSourcePage(html,"https://mip.xiachufang.com/recipe/107345578/","xiachufang");
+  assert.equal(result.title,"可乐鸡翅");
+  assert.deepEqual(result.extractedRecipe?.ingredients,[
+    {name:"鸡翅",amount:"500",unit:"g"},
+    {name:"姜片",amount:"5",unit:"g"},
+    {name:"可乐",amount:"300",unit:"ml"},
+  ]);
+  assert.equal(result.extractedRecipe?.steps.length,1);
+});
+
+test("下厨房移动页 JSON-LD 的紧凑用料与编号步骤可完整拆分",()=>{
+  const html=`<html><head><script type="application/ld+json">${JSON.stringify({"@context":"https://schema.org","@type":"Recipe","name":"可乐鸡翅","recipeIngredient":["500g鸡翅","5g姜片","300ml可乐"],"recipeInstructions":"0.浸泡鸡翅。,1.煎至两面金黄。,2.倒入可乐焖煮。"})}</script></head></html>`;
+  const result=extractSourcePage(html,"https://m.xiachufang.com/recipe/107345578/","xiachufang");
+  assert.deepEqual(result.extractedRecipe?.ingredients,[
+    {name:"鸡翅",amount:"500",unit:"g"},
+    {name:"姜片",amount:"5",unit:"g"},
+    {name:"可乐",amount:"300",unit:"ml"},
+  ]);
+  assert.deepEqual(result.extractedRecipe?.steps,["浸泡鸡翅。","煎至两面金黄。","倒入可乐焖煮。"]);
+  assert.equal(result.extractionMethod,"json_ld");
 });
 
 test("小红书页面正文可作为自动读取内容",()=>{

@@ -103,13 +103,21 @@ export function parseIngredientText(input:string){
   if(!line)return {name:"",amount:"",unit:""};
   const beginning=line.match(new RegExp(`^(${amountToken})\\s*(${unitToken})?\\s+(.+)$`,"i"));
   if(beginning)return {name:beginning[3].trim(),amount:beginning[1].trim(),unit:(beginning[2]||"").trim()};
+  // 下厨房移动页的 JSON-LD 会使用“500g鸡翅”“2勺酱油”这类无空格格式。
+  const compactBeginning=line.match(new RegExp(`^(${amountToken})\\s*(${unitToken})(\\S.+)$`,"i"));
+  if(compactBeginning)return {name:compactBeginning[3].trim(),amount:compactBeginning[1].trim(),unit:compactBeginning[2].trim()};
   const ending=line.match(new RegExp(`^(.+?)\\s+(${amountToken})\\s*(${unitToken})?$`,"i"));
   if(ending)return {name:ending[1].trim(),amount:ending[2].trim(),unit:(ending[3]||"").trim()};
   return {name:line,amount:"",unit:""};
 }
 
 function instructionText(value:unknown):string[]{
-  if(typeof value==="string"){const text=plainText(value);return text?[text]:[];}
+  if(typeof value==="string"){
+    const text=plainText(value);
+    if(!text)return [];
+    const numbered=text.split(/(?:^|[,，]\s*)\d+[.、]\s*/).map(item=>item.trim()).filter(Boolean);
+    return numbered.length>1?numbered:[text];
+  }
   if(Array.isArray(value))return value.flatMap(instructionText);
   const record=asRecord(value);if(!record)return [];
   const textValue=record.text??record.description??record.name;
@@ -132,13 +140,29 @@ function htmlToLines(html:string){
 
 function looksAmountOnly(line:string){return new RegExp(`^${amountToken}\\s*${unitToken}?$`,"i").test(line.trim());}
 
+function classTextValues(html:string,className:string){
+  const values:string[]=[];
+  const pattern=new RegExp(`<([a-z][\\w:-]*)\\b[^>]*class\\s*=\\s*["'][^"']*\\b${className}\\b[^"']*["'][^>]*>([\\s\\S]*?)<\\/\\1>`,"gi");
+  for(const match of html.matchAll(pattern)){
+    const value=plainText(match[2]);
+    if(value)values.push(value);
+  }
+  return values;
+}
+
+function xiachufangIngredientRows(html:string){
+  const names=classTextValues(html,"ing-name");
+  const amounts=classTextValues(html,"ing-amount");
+  return names.slice(0,80).map((name,index)=>parseIngredientText(`${name} ${amounts[index]||""}`)).filter(item=>item.name);
+}
+
 function xiachufangFallback(html:string):ExtractedRecipeContent|undefined{
   const lines=htmlToLines(html);
   // JavaScript 的 \b 只识别 ASCII 单词边界，不能用来判断中文标题“用料”。
   const ingredientStart=lines.findIndex(line=>/^用料(?:\s|$)/.test(line));
   const methodStart=lines.findIndex((line,index)=>index>Math.max(ingredientStart,0)&&(/做法步骤/.test(line)||(/的做法/.test(line)&&line.length<120)));
-  const ingredients:Array<{name:string;amount:string;unit:string}>=[];
-  if(ingredientStart>=0&&methodStart>ingredientStart){
+  const ingredients=xiachufangIngredientRows(html);
+  if(!ingredients.length&&ingredientStart>=0&&methodStart>ingredientStart){
     const section=lines.slice(ingredientStart+1,methodStart).filter(line=>line.length<=160);
     for(let index=0;index<section.length&&ingredients.length<80;index++){
       const line=section[index];
