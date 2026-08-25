@@ -127,6 +127,37 @@ test("四语言骨架会保存账号 locale 且不改写用户菜谱正文", asy
   assert.match(source,/User-authored recipe content is never rewritten/);
 });
 
+test("菜谱和来源保存后使用局部状态更新而不是整页重载", async()=>{
+  const editor=await readFile(new URL("../components/RecipeEditor.tsx",import.meta.url),"utf8");
+  const manual=await readFile(new URL("../components/ManualRecipeEntry.tsx",import.meta.url),"utf8");
+  const sourceImport=await readFile(new URL("../components/UniversalSourceImport.tsx",import.meta.url),"utf8");
+  const provider=await readFile(new URL("../components/CookingProvider.tsx",import.meta.url),"utf8");
+  assert.match(editor,/await saveRecipe/);
+  assert.match(editor,/router\.push/);
+  assert.doesNotMatch(editor,/window\.location\.(?:assign|reload)/);
+  assert.match(manual,/refreshRecipe\(result\.recipeId,result\.sourceVideoId\)/);
+  assert.match(sourceImport,/await onSaved\?\.\(\)/);
+  assert.doesNotMatch(sourceImport,/location\.reload/);
+  assert.match(provider,/loadCloudRecipe/);
+});
+
+test("菜谱风险字段和餐食财务三个独立 GUI 已接入", async()=>{
+  const editor=await readFile(new URL("../components/RecipeEditor.tsx",import.meta.url),"utf8");
+  const financeNav=await readFile(new URL("../components/MealFinanceNav.tsx",import.meta.url),"utf8");
+  const gatherings=await readFile(new URL("../app/gatherings/page.tsx",import.meta.url),"utf8");
+  const ledger=await readFile(new URL("../app/ledger/page.tsx",import.meta.url),"utf8");
+  assert.match(editor,/操作风险/);
+  assert.match(editor,/功夫菜/);
+  assert.match(editor,/riskNote/);
+  assert.match(financeNav,/成本核算/);
+  assert.match(financeNav,/聚餐协作/);
+  assert.match(financeNav,/饮食记账/);
+  assert.match(gatherings,/点菜与分工/);
+  assert.match(gatherings,/GUI 草图 · 不写数据库/);
+  assert.match(ledger,/识别结果核对示例/);
+  assert.match(ledger,/OCR 未接入/);
+});
+
 test("设置页区分环境配置、用户登录和当前数据模式并可设置密码", async () => {
   const source=await readFile(new URL("../app/settings/page.tsx",import.meta.url),"utf8");
   assert.match(source,/站点配置不可用/);

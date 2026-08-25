@@ -98,7 +98,7 @@ export function ImportWorkspace(){
 
       {platform&&<section className="platform-import-panel">
       {platform==="bilibili"&&<>
-        <UniversalSourceImport platform="bilibili"/>
+        <UniversalSourceImport platform="bilibili" onSaved={refreshPending}/>
         <div className="divider"/>
         <div className="two-col bilibili-batch-import"><section>
           <div className="section-head" style={{marginTop:0}}><div><p className="eyebrow">BILIBILI FAVORITES</p><h2>批量导入收藏夹 JSON</h2><p className="subtitle">批量导入只建立来源待办，不会生成空菜谱。</p></div><span className="badge">收藏夹</span></div>
@@ -108,8 +108,8 @@ export function ImportWorkspace(){
           {result&&<div className="notice notice-success"><b>{result.mode==="cloud"?"云端来源导入完成":"来源导入完成"}</b><br/>新增 {result.added}，重复 {result.duplicates}，失败 {result.failed}，跳过 {result.skipped}。</div>}
         </section><aside className="import-audit"><h2>导入审计记录</h2><p className="subtitle">{isDemo?"当前未登录。":"记录来自 Supabase。"}</p>{importJobs.length?<div className="source-list">{importJobs.slice(0,8).map(job=><div key={job.id}><b>{job.fileName||"B站收藏夹导入"}</b><small>{new Date(job.createdAt).toLocaleString("zh-CN")} · 新增 {job.added} · 重复 {job.duplicates} · 失败 {job.failed}</small></div>)}</div>:<div className="empty" style={{padding:"28px 0"}}>暂无导入记录。</div>}</aside></div>
       </>}
-      {platform==="xiaohongshu"&&<UniversalSourceImport platform="xiaohongshu"/>}
-      {platform==="xiachufang"&&<UniversalSourceImport platform="xiachufang"/>}
+      {platform==="xiaohongshu"&&<UniversalSourceImport platform="xiaohongshu" onSaved={refreshPending}/>}
+      {platform==="xiachufang"&&<UniversalSourceImport platform="xiachufang" onSaved={refreshPending}/>}
       {platform==="more"&&<PlatformFeedbackForm/>}
       </section>}
     </div>

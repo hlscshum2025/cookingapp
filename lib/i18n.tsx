@@ -15,7 +15,7 @@ const localeLabels:Record<AppLocale,string>={
 
 const messages={
   "zh-CN":{
-    "nav.dashboard":"总览","nav.recipes":"菜谱库","nav.imports":"导入中心","nav.dictionary":"厨房词典","nav.shopping":"采购清单","nav.costs":"成本核算","nav.logs":"做菜日志","nav.tags":"标签总览","nav.settings":"设置","nav.more":"更多",
+    "nav.dashboard":"总览","nav.recipes":"菜谱库","nav.imports":"导入中心","nav.dictionary":"厨房词典","nav.shopping":"采购清单","nav.costs":"餐食财务","nav.logs":"做菜日志","nav.tags":"标签总览","nav.settings":"设置","nav.more":"更多",
     "shell.tagline":"把收藏变成真正会做的菜","shell.workflow":"来源待办 → 手工整理 → 菜谱 → 选菜 → 统一采购。","shell.functions":"全部功能","shell.account":"当前账号","shell.openSettings":"账号与设置",
     "status.loading":"正在检查连接","status.unconfigured":"Supabase 未配置","status.signedOut":"Supabase 待登录","status.connected":"Supabase 已连接","status.error":"Supabase 连接异常",
     "language.label":"界面语言","language.note":"先切换导航、状态和主要页面骨架；用户录入的菜名与步骤保持原文。",
@@ -29,7 +29,7 @@ const messages={
     "dictionary.editTitle":"编辑个人食材","dictionary.addTitle":"补充个人食材","dictionary.zhCN":"简体中文名 *","dictionary.zhTW":"繁体中文名","dictionary.germanHint":"德国购买提示","dictionary.gluten":"无麸质状态","dictionary.verification":"人工校验","dictionary.pending":"待确认","dictionary.confirmed":"已确认","dictionary.save":"保存个人映射","dictionary.safety":"超市位置只用于采购导航，不代表实时有货；过敏原与无麸质结论仍以具体包装为准。",
   },
   "zh-TW":{
-    "nav.dashboard":"總覽","nav.recipes":"食譜庫","nav.imports":"匯入中心","nav.dictionary":"廚房詞典","nav.shopping":"採購清單","nav.costs":"成本核算","nav.logs":"料理日誌","nav.tags":"標籤總覽","nav.settings":"設定","nav.more":"更多",
+    "nav.dashboard":"總覽","nav.recipes":"食譜庫","nav.imports":"匯入中心","nav.dictionary":"廚房詞典","nav.shopping":"採購清單","nav.costs":"餐食財務","nav.logs":"料理日誌","nav.tags":"標籤總覽","nav.settings":"設定","nav.more":"更多",
     "shell.tagline":"把收藏整理成真正會做的料理","shell.workflow":"來源待辦 → 手動整理 → 食譜 → 選菜 → 統一採購。","shell.functions":"全部功能","shell.account":"目前帳號","shell.openSettings":"帳號與設定",
     "status.loading":"正在檢查連線","status.unconfigured":"Supabase 尚未設定","status.signedOut":"Supabase 等待登入","status.connected":"Supabase 已連線","status.error":"Supabase 連線異常",
     "language.label":"介面語言","language.note":"先切換導覽、狀態與主要頁面骨架；使用者輸入的菜名與步驟保留原文。",
@@ -43,7 +43,7 @@ const messages={
     "dictionary.editTitle":"編輯個人食材","dictionary.addTitle":"補充個人食材","dictionary.zhCN":"簡體中文名稱 *","dictionary.zhTW":"繁體中文名稱","dictionary.germanHint":"德國購買提示","dictionary.gluten":"無麩質狀態","dictionary.verification":"人工校驗","dictionary.pending":"待確認","dictionary.confirmed":"已確認","dictionary.save":"儲存個人對應","dictionary.safety":"超市位置只用於採購導覽，不代表即時有貨；過敏原與無麩質結論仍以實際包裝為準。",
   },
   en:{
-    "nav.dashboard":"Overview","nav.recipes":"Recipes","nav.imports":"Import","nav.dictionary":"Kitchen dictionary","nav.shopping":"Shopping","nav.costs":"Costs","nav.logs":"Cooking log","nav.tags":"Tags","nav.settings":"Settings","nav.more":"More",
+    "nav.dashboard":"Overview","nav.recipes":"Recipes","nav.imports":"Import","nav.dictionary":"Kitchen dictionary","nav.shopping":"Shopping","nav.costs":"Food finance","nav.logs":"Cooking log","nav.tags":"Tags","nav.settings":"Settings","nav.more":"More",
     "shell.tagline":"Turn saved posts into recipes you can repeat","shell.workflow":"Sources → Review → Recipes → Select → Shop.","shell.functions":"All features","shell.account":"Signed-in account","shell.openSettings":"Account & settings",
     "status.loading":"Checking connection","status.unconfigured":"Supabase not configured","status.signedOut":"Sign-in required","status.connected":"Supabase connected","status.error":"Connection error",
     "language.label":"Interface language","language.note":"This first pass translates navigation, status and the main page structure. User-authored recipe content is never rewritten.",
@@ -57,7 +57,7 @@ const messages={
     "dictionary.editTitle":"Edit personal ingredient","dictionary.addTitle":"Add personal ingredient","dictionary.zhCN":"Simplified Chinese *","dictionary.zhTW":"Traditional Chinese","dictionary.germanHint":"Germany shopping note","dictionary.gluten":"Gluten-free status","dictionary.verification":"Verification","dictionary.pending":"Pending","dictionary.confirmed":"Confirmed","dictionary.save":"Save personal mapping","dictionary.safety":"Shelf hints are navigation aids, not live stock information. Check the package for allergens and gluten-free claims.",
   },
   de:{
-    "nav.dashboard":"Übersicht","nav.recipes":"Rezepte","nav.imports":"Import","nav.dictionary":"Küchenlexikon","nav.shopping":"Einkauf","nav.costs":"Kosten","nav.logs":"Kochprotokoll","nav.tags":"Tags","nav.settings":"Einstellungen","nav.more":"Mehr",
+    "nav.dashboard":"Übersicht","nav.recipes":"Rezepte","nav.imports":"Import","nav.dictionary":"Küchenlexikon","nav.shopping":"Einkauf","nav.costs":"Essensfinanzen","nav.logs":"Kochprotokoll","nav.tags":"Tags","nav.settings":"Einstellungen","nav.more":"Mehr",
     "shell.tagline":"Gespeicherte Beiträge in nachkochbare Rezepte verwandeln","shell.workflow":"Quellen → Prüfen → Rezepte → Auswählen → Einkaufen.","shell.functions":"Alle Funktionen","shell.account":"Angemeldetes Konto","shell.openSettings":"Konto & Einstellungen",
     "status.loading":"Verbindung wird geprüft","status.unconfigured":"Supabase nicht konfiguriert","status.signedOut":"Anmeldung erforderlich","status.connected":"Supabase verbunden","status.error":"Verbindungsfehler",
     "language.label":"Oberflächensprache","language.note":"Zunächst werden Navigation, Status und die Hauptstruktur übersetzt. Eigene Rezepttexte bleiben unverändert.",

@@ -37,7 +37,7 @@ function draftKey(source?:SourceVideo){
 
 export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={}) {
   const router=useRouter();
-  const { cloudStatus,refreshCloudData } = useCooking();
+  const { cloudStatus,refreshRecipe } = useCooking();
   const storageKey=useMemo(()=>draftKey(initialSource),[initialSource]);
   const [draft, setDraft] = useState<ManualRecipeDraft>(() => createDraftFromSource(initialSource));
   const [draftReady,setDraftReady]=useState(false);
@@ -120,7 +120,7 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
       if (!result) throw new Error("没有收到云端保存结果。");
       try{window.localStorage.removeItem(storageKey);}catch{}
       setMessage(`已保存来源、菜谱和第 ${result.versionNo} 个版本；正在打开菜谱。`);
-      await refreshCloudData();
+      await refreshRecipe(result.recipeId,result.sourceVideoId);
       router.push(`/recipes/${result.recipeId}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "保存失败。");

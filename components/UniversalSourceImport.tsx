@@ -27,7 +27,7 @@ async function readXiachufang(source:ImportedSourceDraft){
   };
 }
 
-export function UniversalSourceImport({platform}:{platform:ImportPlatform}){
+export function UniversalSourceImport({platform,onSaved}:{platform:ImportPlatform;onSaved?:()=>Promise<void>|void}){
   const {cloudStatus}=useCooking();
   const copy=platformCopy[platform];
   const [input,setInput]=useState("");
@@ -64,7 +64,7 @@ export function UniversalSourceImport({platform}:{platform:ImportPlatform}){
   const save=async()=>{
     if(!draft)return;if(cloudStatus!=="connected"){setError("请先登录 CookingApp，再保存来源待办。");return;}
     setSaving(true);setError("");
-    try{await saveSharedRecipeSource(draft);setMessage(`已把“${draft.title}”加入待处理来源。正在刷新列表…`);window.setTimeout(()=>window.location.reload(),500);}catch(reason){setError(reason instanceof Error?reason.message:"保存来源失败。");}finally{setSaving(false);}
+    try{await saveSharedRecipeSource(draft);await onSaved?.();setMessage(`已把“${draft.title}”加入待处理来源；下方列表已更新。`);setDraft(null);setInput("");}catch(reason){setError(reason instanceof Error?reason.message:"保存来源失败。");}finally{setSaving(false);}
   };
 
   return <section className="platform-single-import">

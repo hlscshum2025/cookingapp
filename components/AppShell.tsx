@@ -31,7 +31,9 @@ export function AppShell({children}:{children:React.ReactNode}) {
   const [accountOpen,setAccountOpen]=useState(false);
   const [email,setEmail]=useState("");
   const accountMenuRef=useRef<HTMLDivElement>(null);
-  const active=(href:string)=>href==="/"?pathname===href:pathname.startsWith(href);
+  const active=(href:string)=>href==="/costs"
+    ?pathname==="/costs"||pathname.startsWith("/costs/")||pathname.startsWith("/gatherings")||pathname.startsWith("/ledger")
+    :href==="/"?pathname===href:pathname.startsWith(href);
   const statusLabel={loading:t("status.loading"),unconfigured:t("status.unconfigured"),signed_out:t("status.signedOut"),connected:t("status.connected"),error:t("status.error")}[cloudStatus];
   useEffect(()=>{if(cloudStatus==="signed_out"&&pathname!=="/login")router.replace(`/login?next=${encodeURIComponent(pathname)}`);},[cloudStatus,pathname,router]);
   useEffect(()=>{if(!authResolved||!authenticated)return;const prefetch=()=>nav.forEach(([href])=>router.prefetch(href));const idle=window.requestIdleCallback?.(prefetch,{timeout:1500});if(idle)return()=>window.cancelIdleCallback?.(idle);const timer=window.setTimeout(prefetch,250);return()=>window.clearTimeout(timer);},[authResolved,authenticated,router]);

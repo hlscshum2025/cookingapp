@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { demoIngredients, demoLogs, demoRecipes } from "@/lib/demo-data";
 import type { CookingLog, ImportJobSummary, ImportResult, IngredientMapping, NormalizedFavoriteVideo, Recipe, SourceVideo } from "@/lib/types";
-import { connectSupabase, getSupabase, importBilibiliFavorites, loadCloudData, persistIngredient, persistLog, persistRecipe, removeCloudRecipe } from "@/lib/supabase";
+import { connectSupabase, getSupabase, importBilibiliFavorites, loadCloudData, loadCloudRecipe, persistIngredient, persistLog, persistRecipe, removeCloudRecipe } from "@/lib/supabase";
 
 type ContextValue = {
   recipes: Recipe[];
@@ -17,12 +17,13 @@ type ContextValue = {
   isDemo: boolean;
   cloudStatus: "loading" | "unconfigured" | "signed_out" | "connected" | "error";
   cloudError: string;
-  saveRecipe: (recipe: Recipe) => void;
+  saveRecipe: (recipe: Recipe) => Promise<void>;
   deleteRecipe: (id: string) => void;
   addLog: (log: CookingLog) => void;
   saveIngredient: (item: IngredientMapping) => void;
   importVideos: (videos: NormalizedFavoriteVideo[], metadata: { collectionId?: string; fileName?: string; skipped?: number }) => Promise<ImportResult>;
   refreshCloudData: () => Promise<void>;
+  refreshRecipe: (recipeId: string, completedSourceId?: string) => Promise<void>;
   resetDemo: () => void;
 };
 
@@ -122,7 +123,18 @@ export function CookingProvider({ children }: { children: React.ReactNode }) {
     setIsDemo(false);setCloudError("");setCloudStatus("connected");setReady(true);
   },[]);
 
-  const saveRecipe = useCallback((recipe: Recipe) => { setRecipes(old => old.some(item=>item.id===recipe.id)?old.map(item=>item.id===recipe.id?recipe:item):[recipe,...old]); persistRecipe(recipe).catch(e=>setCloudError(e.message)); },[]);
+  const refreshRecipe = useCallback(async(recipeId:string,completedSourceId?:string)=>{
+    const recipe=await loadCloudRecipe(recipeId);
+    if(recipe)setRecipes(old=>old.some(item=>item.id===recipe.id)?old.map(item=>item.id===recipe.id?recipe:item):[recipe,...old]);
+    if(completedSourceId)setSourceVideos(old=>old.filter(item=>item.id!==completedSourceId));
+    setIsDemo(false);setCloudError("");setCloudStatus("connected");setReady(true);
+  },[]);
+
+  const saveRecipe = useCallback(async(recipe: Recipe) => {
+    setRecipes(old => old.some(item=>item.id===recipe.id)?old.map(item=>item.id===recipe.id?recipe:item):[recipe,...old]);
+    try{await persistRecipe(recipe);setCloudError("");}
+    catch(error){const message=error instanceof Error?error.message:"菜谱保存失败";setCloudError(message);throw error;}
+  },[]);
   const deleteRecipe = useCallback((id:string) => { setRecipes(old=>old.filter(r=>r.id!==id)); setLogs(old=>old.filter(l=>l.recipeId!==id)); removeCloudRecipe(id).catch(e=>setCloudError(e.message)); },[]);
   const addLog = useCallback((log:CookingLog) => {setLogs(old=>[log,...old]);persistLog(log).catch(e=>setCloudError(e.message));},[]);
   const saveIngredient = useCallback((item:IngredientMapping) => {setIngredients(old=>old.some(i=>i.id===item.id)?old.map(i=>i.id===item.id?item:i):[item,...old]);persistIngredient(item).catch(e=>setCloudError(e.message));},[]);
@@ -142,7 +154,7 @@ export function CookingProvider({ children }: { children: React.ReactNode }) {
     return result;
   },[]);
   const resetDemo = useCallback(() => { setRecipes(demoRecipes); setLogs(demoLogs); setIngredients(demoIngredients); },[]);
-  const value=useMemo(()=>({recipes,logs,ingredients,importJobs,sourceVideos,ready,authResolved,authenticated,isDemo,cloudStatus,cloudError,saveRecipe,deleteRecipe,addLog,saveIngredient,importVideos,refreshCloudData,resetDemo}),[recipes,logs,ingredients,importJobs,sourceVideos,ready,authResolved,authenticated,isDemo,cloudStatus,cloudError,saveRecipe,deleteRecipe,addLog,saveIngredient,importVideos,refreshCloudData,resetDemo]);
+  const value=useMemo(()=>({recipes,logs,ingredients,importJobs,sourceVideos,ready,authResolved,authenticated,isDemo,cloudStatus,cloudError,saveRecipe,deleteRecipe,addLog,saveIngredient,importVideos,refreshCloudData,refreshRecipe,resetDemo}),[recipes,logs,ingredients,importJobs,sourceVideos,ready,authResolved,authenticated,isDemo,cloudStatus,cloudError,saveRecipe,deleteRecipe,addLog,saveIngredient,importVideos,refreshCloudData,refreshRecipe,resetDemo]);
   return <CookingContext.Provider value={value}>{children}</CookingContext.Provider>;
 }
 

@@ -37,6 +37,9 @@ export type Recipe = {
   advancePrepMinutes?: number;
   advancePrepNote?: string;
   difficulty: "简单" | "中等" | "进阶";
+  riskLevel?: "低风险" | "需留意" | "高风险";
+  riskNote?: string;
+  effortType?: "快手菜" | "日常菜" | "功夫菜";
   status: RecipeStatus;
   visibility: "private" | "public";
   tags: string[];

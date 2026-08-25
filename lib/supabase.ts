@@ -75,6 +75,20 @@ export async function loadCloudData(userId:string){
   return {recipes:(recipes.data||[]).map(r=>r.document as Recipe),logs:cloudLogs,ingredients:(ingredients.data||[]).map(r=>r.document as IngredientMapping),importJobs:jobs,sourceVideos:videos};
 }
 
+export async function loadCloudRecipe(recipeId:string){
+  const s=getSupabase();if(!s)return null;
+  const {data:{user}}=await s.auth.getUser();if(!user)return null;
+  const {data,error}=await s
+    .from("recipes")
+    .select("document")
+    .eq("id",recipeId)
+    .eq("owner_id",user.id)
+    .is("deleted_at",null)
+    .maybeSingle();
+  if(error)throw error;
+  return data?.document as Recipe|undefined;
+}
+
 export async function importBilibiliFavorites(videos:NormalizedFavoriteVideo[],metadata:{collectionId?:string;fileName?:string}):Promise<ImportResult|null>{
   const s=getSupabase();if(!s)return null;const {data:{user}}=await s.auth.getUser();if(!user)return null;
   const payload=videos.map(video=>({bvid:video.bvid,title:video.title,video_url:video.url,uploader:video.uploader,intro:video.description,cover_url:video.coverUrl,duration_seconds:video.durationSeconds,published_at:video.publishedAt,favorited_at:video.favoritedAt,favorite_id:video.favoriteId,invalid:video.invalid,raw:video.raw}));
