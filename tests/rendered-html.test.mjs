@@ -72,7 +72,7 @@ test("手机底栏按标签、导入、词典、翻译采购、成本排列", as
   assert.match(source,/const mobile=\[findNav\("\/tags"\),findNav\("\/imports"\),findNav\("\/ingredients"\),findNav\("\/translations"\),findNav\("\/costs"\)\]/);
 });
 
-test("托管生产环境未登录时清空本地副本并统一进入登录页", async () => {
+test("会话恢复、后台同步和未登录跳转保持统一", async () => {
   const provider=await readFile(new URL("../components/CookingProvider.tsx",import.meta.url),"utf8");
   const shell=await readFile(new URL("../components/AppShell.tsx",import.meta.url),"utf8");
   assert.match(provider,/localStorage\.removeItem/);
@@ -83,11 +83,13 @@ test("托管生产环境未登录时清空本地副本并统一进入登录页",
   assert.match(provider,/event==="INITIAL_SESSION"/);
   assert.match(provider,/event==="SIGNED_IN"/);
   assert.match(provider,/loadedUserId===session\.user\.id/);
+  assert.ok(provider.indexOf("const current=++request")>provider.indexOf("loadedUserId===session.user.id"),"重复 SIGNED_IN 不应让正在进行的首次同步失效");
   assert.match(provider,/location\.replace\("\/login\?mode=recovery"\)/);
   assert.match(provider,/setCloudStatus\("unconfigured"\)/);
   assert.match(shell,/cloudStatus==="signed_out"/);
-  assert.match(shell,/正在后台同步最新菜谱/);
-  assert.match(shell,/router\.prefetch/);
+  assert.match(shell,/Supabase 正在连接并同步/);
+  assert.match(shell,/正在显示最近一次数据/);
+  assert.match(shell,/prefetch=\{false\}/);
   assert.match(shell,/router\.replace\(`\/login\?next=/);
 });
 
@@ -158,10 +160,13 @@ test("菜谱风险字段和餐食财务三个独立 GUI 已接入", async()=>{
   assert.match(ledger,/OCR 未接入/);
 });
 
-test("设置页区分环境配置、用户登录和当前数据模式并可设置密码", async () => {
+test("设置页区分连接中、已连接和未连接并可手动重试", async () => {
   const source=await readFile(new URL("../app/settings/page.tsx",import.meta.url),"utf8");
   assert.match(source,/站点配置不可用/);
-  assert.match(source,/cloudStatus==="connected"\?"连接有效"/);
+  assert.match(source,/cloudStatus==="connected"\?"已连接"/);
+  assert.match(source,/cloudStatus==="error"\?"未连接"/);
+  assert.match(source,/refreshCloudData/);
+  assert.match(source,/重新连接/);
   assert.match(source,/environment-status/);
   assert.match(source,/设置账号登录密码/);
   assert.match(source,/updateUser\(\{password:newPassword\}\)/);
@@ -174,7 +179,10 @@ test("总览粮仓区分冰箱与储物柜并统一确认删除",async()=>{
   const dashboard=await readFile(new URL("../components/Dashboard.tsx",import.meta.url),"utf8");
   const pantry=await readFile(new URL("../lib/pantry.ts",import.meta.url),"utf8");
   assert.match(dashboard,/我的粮仓/);
-  assert.match(dashboard,/线上储物柜/);
+  assert.match(dashboard,/pantryZone\("fridge","冰箱"/);
+  assert.match(dashboard,/pantryZone\("cabinet","储物柜"/);
+  assert.match(dashboard,/cloudStatus!=="connected"/);
+  assert.match(dashboard,/粮仓仍然显示/);
   assert.match(dashboard,/删除队列/);
   assert.match(dashboard,/确认统一删除/);
   assert.match(pantry,/storage_location/);

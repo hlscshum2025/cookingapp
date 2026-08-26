@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { connectSupabase } from "./supabase";
+import { connectSupabase, getSessionUser } from "./supabase";
 
 export const supportedLocales=["zh-CN","zh-TW","en","de"] as const;
 export type AppLocale=(typeof supportedLocales)[number];
@@ -97,7 +97,7 @@ export function LocaleProvider({children}:{children:React.ReactNode}){
     setLocaleState(fallback);
     connectSupabase().then(async s=>{
       if(!s)return;
-      const {data:{user}}=await s.auth.getUser();
+      const user=await getSessionUser(s);
       if(!user)return;
       const {data}=await s.from("profiles").select("locale").eq("id",user.id).maybeSingle();
       if(active&&isLocale(data?.locale))setLocaleState(data.locale);
@@ -114,7 +114,7 @@ export function LocaleProvider({children}:{children:React.ReactNode}){
     setLocaleState(next);
     void connectSupabase().then(async s=>{
       if(!s)return;
-      const {data:{user}}=await s.auth.getUser();
+      const user=await getSessionUser(s);
       if(user)await s.from("profiles").update({locale:next}).eq("id",user.id);
     });
   },[]);

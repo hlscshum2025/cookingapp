@@ -2,7 +2,7 @@
 
 import { createContext,useContext,useEffect,useMemo,useState } from "react";
 import type { Recipe } from "@/lib/types";
-import { connectSupabase } from "@/lib/supabase";
+import { connectSupabase, getSessionUser } from "@/lib/supabase";
 
 export type CartRecipe={id:string;title:string;servings:number;ingredients:Recipe["ingredients"]};
 type CartContextValue={
@@ -49,7 +49,7 @@ export function ShoppingCartProvider({children}:{children:React.ReactNode}){
         try{setPurchasedKeys(JSON.parse(localStorage.getItem(bought)||"[]") as string[]);}catch{setPurchasedKeys([]);}
         setReady(true);
       };
-      const {data:{user}}=await s.auth.getUser();apply(user?.id);
+      const user=await getSessionUser(s);apply(user?.id);
       const {data:{subscription}}=s.auth.onAuthStateChange((_event,session)=>apply(session?.user.id));
       unsubscribe=()=>subscription.unsubscribe();
     };
