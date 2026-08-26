@@ -1,0 +1,22 @@
+[build-system]
+requires=["setuptools>=69","wheel"]
+build-backend="setuptools.build_meta"
+
+[project]
+name="cookingapp-vision"
+version="0.1.0"
+description="Local OCR and food-recognition experiments for CookingApp"
+readme="README.md"
+requires-python=">=3.11,<3.13"
+license={text="MIT"}
+
+[project.scripts]
+cooking-vision="cooking_vision.cli:main"
+
+[tool.setuptools.packages.find]
+where=["src"]
+
+[tool.pytest.ini_options]
+pythonpath=["src"]
+testpaths=["tests"]
+addopts="-q"

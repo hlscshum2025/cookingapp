@@ -1,0 +1,7 @@
+# Windows/PyCharm CPU baseline, resolved together on 2026-08-26.
+# PaddleOCR installs its compatible opencv-contrib-python build.
+numpy==2.2.6
+paddlepaddle==3.3.1
+paddleocr==3.7.0
+PyYAML==6.0.2
+Pillow==11.3.0

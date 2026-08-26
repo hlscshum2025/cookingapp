@@ -174,19 +174,19 @@ Turnstile token 通常一次性使用，提交后刷新验证码是正常行为�
 V1 早期手工初始化时，曾按以下顺序运行 migrations：
 
 ```text
-202608020001_cookingapp_v1.sql
-202608030001_import_audit.sql
-202608090001_manual_recipe_entry.sql
-202608090002_trigger_security_hardening.sql
-20260810060929_harden_rls_cross_owner_relations.sql
+supabase/bootstrap/202608020001_cookingapp_v1.sql
+supabase/bootstrap/202608030001_import_audit.sql
+supabase/migrations/20260809082241_manual_recipe_entry.sql
+supabase/migrations/20260809082534_trigger_security_hardening.sql
+supabase/migrations/20260810061834_harden_rls_cross_owner_relations.sql
 ```
 
 当时还在 Supabase SQL Editor 中使用过以下四个便于人工识别的保存名称：
 
 | 顺序 | 历史名称 | 文件 | 用途 |
 |---:|---|---|---|
-| 01 | `01_CookingApp数据库初始化` | `202608020001_cookingapp_v1.sql` | 创建首批业务表、RLS、Storage 策略和基础触发器 |
-| 02 | `02_B站导入审计升级` | `202608030001_import_audit.sql` | 补充导入审计与批量导入函数 |
+| 01 | `01_CookingApp数据库初始化` | `supabase/bootstrap/202608020001_cookingapp_v1.sql` | 创建首批业务表、RLS、Storage 策略和基础触发器 |
+| 02 | `02_B站导入审计升级` | `supabase/bootstrap/202608030001_import_audit.sql` | 补充导入审计与批量导入函数 |
 | 03 | `03_检查数据库安装是否完整` | `supabase/checks/03_verify_installation.sql` | 只读安装检查 |
 | 04 | `04_检查云端写入结果` | `supabase/checks/04_verify_cloud_data.sql` | 只读云端数据检查 |
 

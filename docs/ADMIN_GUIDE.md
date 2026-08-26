@@ -80,7 +80,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_你的完整密钥
 升级到带导入审计的版本后，还要在 `SQL Editor` 运行一次：
 
 ```text
-supabase/migrations/202608030001_import_audit.sql
+supabase/bootstrap/202608030001_import_audit.sql
 ```
 
 这份增量脚本不会删除已有菜谱；它补充导入字段并创建批量导入函数。运行成功后再打开导入中心。

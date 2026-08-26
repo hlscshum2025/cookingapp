@@ -41,18 +41,18 @@
 - Triggers
 - `public` / `private` 业务 Functions（忽略纯换行格式差异后比对）
 
-> 注：两个项目历史上存在直接执行 SQL 的情况，因此 `supabase_migrations.schema_migrations` 的时间戳/历史记录并不完全一致；发布判断应以 GitHub migration + 实际对象验证为准，后续逐步收敛为 migration-only 流程。
+> 注：两个项目历史上存在直接执行 SQL 的情况。PROD 的远端时间戳已在 2026-08-26 与 `supabase/migrations/` 对齐；早期手工安装脚本保存在 `supabase/bootstrap/`，待发布脚本保存在 `supabase/pending_migrations/`。发布判断仍需同时核对 migration history 与实际对象。
 
 ## DEV / PROD 差异与同步日志
 
 | 日期 | 结构变化 | GitHub migration | DEV | PROD | 当前状态 | 备注 |
 |---|---|---|---|---|---|---|
 | 2026-08-11 | 补齐常用 owner / FK 查询索引：`cooking_logs_owner_cooked_idx`、`import_items_owner_idx`、`import_items_recipe_idx`、`import_items_source_video_idx`、`recipe_tags_owner_idx`、`recipe_tags_tag_idx`、`recipe_versions_owner_idx` | `20260811112654_add_missing_foreign_key_indexes.sql` | 2026-08-14 补齐 | 原已存在 | **已同步** | 之前出现 PROD 有、DEV 缺失的反向漂移；现已一致 |
-| 2026-08-13 | 公开菜谱点赞：`public_recipes.like_count`、`public_recipe_likes`、RLS、计数 Trigger / private Function | `202608130001_public_recipe_likes.sql` | 已验证 | 2026-08-14 补齐 | **已同步** | 网页点赞功能依赖此结构；未同步时不可发布对应前端 |
-| 2026-08-14 | 线上冰箱：`pantry_items`、owner-only RLS、账号级库存 | `202608130002_pantry_items.sql` | 已存在并验证 | 已存在并验证 | **已同步** | 业务数据独立；结构一致不代表库存数据相同 |
-| 2026-08-22 | “我的粮仓”分区：为 `pantry_items` 增加 `storage_location`、冰箱/储物柜约束及 owner/location 查询索引 | `202608220001_pantry_storage_location.sql` | 已执行并验证 | 已执行并验证 | **已同步** | 旧数据默认归入 `fridge`；未复制或覆盖业务数据 |
-| 2026-08-22 | 用户反馈队列：`feedback_submissions`、owner/admin RLS、队列和外键索引 | `202608220001_feedback_submissions.sql` | 已执行并验证 | 已执行并验证 | **已同步** | 登录用户只能读自己的反馈并提交 `new/P3`；管理员可读全体并更新；anon 无权限 |
-| 2026-08-22 | 小票 OCR 数据基座：5 张 owner-only 表、复合 owner 外键、查询索引、私有 `receipt-images` bucket 与 Storage RLS | `202608220002_receipt_ocr_schema.sql` + `202608220003_receipt_ocr_fk_indexes.sql` | 已执行并验证 | 未执行 | **待同步 PROD** | 当前没有前端写入依赖；必须等用户本地检查并明确要求发布后再同步 |
+| 2026-08-13 | 公开菜谱点赞：`public_recipes.like_count`、`public_recipe_likes`、RLS、计数 Trigger / private Function | `bootstrap/202608130001_public_recipe_likes.sql` | 已验证 | 2026-08-14 补齐 | **已同步** | 历史手工安装脚本；网页点赞功能依赖此结构 |
+| 2026-08-14 | 线上冰箱：`pantry_items`、owner-only RLS、账号级库存 | `bootstrap/202608140001_pantry_inventory.sql` | 已存在并验证 | 已存在并验证 | **已同步** | 历史手工安装脚本；业务数据独立，结构一致不代表库存数据相同 |
+| 2026-08-22 | “我的粮仓”分区：为 `pantry_items` 增加 `storage_location`、冰箱/储物柜约束及 owner/location 查询索引 | `20260822084649_pantry_storage_location.sql` | 已执行并验证 | 已执行并验证 | **已同步** | 旧数据默认归入 `fridge`；未复制或覆盖业务数据 |
+| 2026-08-22 | 用户反馈队列：`feedback_submissions`、owner/admin RLS、队列和外键索引 | `20260822041524_feedback_submissions.sql` | 已执行并验证 | 已执行并验证 | **已同步** | 登录用户只能读自己的反馈并提交 `new/P3`；管理员可读全体并更新；anon 无权限 |
+| 2026-08-22 | 小票 OCR 数据基座：5 张 owner-only 表、复合 owner 外键、查询索引、私有 `receipt-images` bucket 与 Storage RLS | `pending_migrations/202608220002_receipt_ocr_schema.sql` + `pending_migrations/202608220003_receipt_ocr_fk_indexes.sql` | 已执行并验证 | 未执行 | **待同步 PROD** | 当前没有前端写入依赖；必须等用户本地检查并明确要求发布后再同步 |
 
 ## 2026-08-14 DEV → PROD 增量业务数据合并
 
@@ -159,7 +159,7 @@ DEV → PROD 的测试数据合并不得通过整库覆盖完成。推荐规则�
 
 **[待同步 PROD] 2026-08-22 — 小票 OCR / 采购成本数据基座**
 
-- migration：`202608220002_receipt_ocr_schema.sql`、`202608220003_receipt_ocr_fk_indexes.sql`
+- migration：`supabase/pending_migrations/202608220002_receipt_ocr_schema.sql`、`supabase/pending_migrations/202608220003_receipt_ocr_fk_indexes.sql`
 - DEV 验证：5 表均启用 RLS；每表 4 条 owner policy；anon 无表读取；authenticated 有受 RLS 约束的 CRUD；4 个 owner 复合外键和覆盖索引存在；`receipt-images` 为私有 bucket，并有 owner read/insert/update/delete policy
 - PROD 状态：未执行，本次明确不修改
 - 前端依赖：当前无；后续小票上传/OCR/人工确认界面使用。小红书截图 OCR 是否复用该 bucket/表需另行设计，不混入小票采购事实

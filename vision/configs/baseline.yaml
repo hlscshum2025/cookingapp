@@ -1,0 +1,33 @@
+receipt:
+  language: german
+  min_confidence: 0.35
+  max_side: 2200
+  save_preprocess_stages: true
+
+food_detection:
+  model: yolov8s-worldv2.pt
+  confidence: 0.20
+  image_size: 640
+  classes:
+    - apple
+    - banana
+    - tomato
+    - egg
+    - milk carton
+    - cucumber
+    - onion
+    - potato
+    - bell pepper
+    - packaged food
+
+# 模型只输出候选；下面的映射仍需人工确认后才能写入 CookingApp。
+canonical_mapping:
+  apple: apple
+  banana: banana
+  tomato: tomato
+  egg: egg
+  milk carton: milk
+  cucumber: cucumber
+  onion: onion
+  potato: potato
+  bell pepper: bell-pepper

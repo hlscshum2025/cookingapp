@@ -10,27 +10,27 @@ test("主页包含 CookingApp 核心入口", async () => {
 });
 
 test("数据库 migration 开启 RLS", async () => {
-  const sql=await readFile(new URL("../supabase/migrations/202608020001_cookingapp_v1.sql",import.meta.url),"utf8");
+  const sql=await readFile(new URL("../supabase/bootstrap/202608020001_cookingapp_v1.sql",import.meta.url),"utf8");
   assert.match(sql,/enable row level security/i);
   assert.match(sql,/recipes public read/);
   assert.match(sql,/logs owner/);
 });
 
 test("手动录入 migration 使用登录用户并原子保存来源版本", async () => {
-  const sql=await readFile(new URL("../supabase/migrations/202608090001_manual_recipe_entry.sql",import.meta.url),"utf8");
+  const sql=await readFile(new URL("../supabase/migrations/20260809082241_manual_recipe_entry.sql",import.meta.url),"utf8");
   assert.match(sql,/auth\.uid\(\)/);
   assert.match(sql,/source_extracted/);
   assert.match(sql,/on conflict\(owner_id,platform,external_id\)/i);
 });
 
 test("内部触发器函数不能被匿名或普通用户直接调用", async () => {
-  const sql=await readFile(new URL("../supabase/migrations/202608090002_trigger_security_hardening.sql",import.meta.url),"utf8");
+  const sql=await readFile(new URL("../supabase/migrations/20260809082534_trigger_security_hardening.sql",import.meta.url),"utf8");
   assert.match(sql,/handle_new_user\(\).*public, anon, authenticated/i);
   assert.match(sql,/snapshot_recipe_update\(\).*public, anon, authenticated/i);
 });
 
 test("私有首版 migration 关闭匿名菜谱并校验跨用户关联", async () => {
-  const sql=await readFile(new URL("../supabase/migrations/20260810060929_harden_rls_cross_owner_relations.sql",import.meta.url),"utf8");
+  const sql=await readFile(new URL("../supabase/migrations/20260810061834_harden_rls_cross_owner_relations.sql",import.meta.url),"utf8");
   assert.match(sql,/drop policy if exists "recipes public read"/i);
   assert.ok((sql.match(/to authenticated/gi)??[]).length>=12);
   assert.match(sql,/recipes\.id = recipe_versions\.recipe_id/i);
@@ -143,21 +143,28 @@ test("菜谱和来源保存后使用局部状态更新而不是整页重载", as
   assert.match(provider,/loadCloudRecipe/);
 });
 
-test("菜谱风险字段和餐食财务三个独立 GUI 已接入", async()=>{
+test("菜谱风险字段和餐食财务无刷新切换 GUI 已接入", async()=>{
   const editor=await readFile(new URL("../components/RecipeEditor.tsx",import.meta.url),"utf8");
   const financeNav=await readFile(new URL("../components/MealFinanceNav.tsx",import.meta.url),"utf8");
-  const gatherings=await readFile(new URL("../app/gatherings/page.tsx",import.meta.url),"utf8");
-  const ledger=await readFile(new URL("../app/ledger/page.tsx",import.meta.url),"utf8");
+  const workspace=await readFile(new URL("../components/MealFinanceWorkspace.tsx",import.meta.url),"utf8");
   assert.match(editor,/操作风险/);
   assert.match(editor,/功夫菜/);
   assert.match(editor,/riskNote/);
   assert.match(financeNav,/成本核算/);
   assert.match(financeNav,/聚餐协作/);
   assert.match(financeNav,/饮食记账/);
-  assert.match(gatherings,/点菜与分工/);
-  assert.match(gatherings,/GUI 草图 · 不写数据库/);
-  assert.match(ledger,/识别结果核对示例/);
-  assert.match(ledger,/OCR 未接入/);
+  assert.doesNotMatch(financeNav,/next\/link/);
+  assert.match(workspace,/history\.replaceState/);
+  assert.match(workspace,/点菜与分工/);
+  assert.match(workspace,/openDishId/);
+  assert.match(workspace,/aria-expanded/);
+  assert.match(workspace,/"helper","帮厨"/);
+  assert.match(workspace,/"buyer","采购"/);
+  assert.match(workspace,/我来帮忙/);
+  assert.match(workspace,/我有点忙/);
+  assert.match(workspace,/GUI 草图 · 不写数据库/);
+  assert.match(workspace,/识别结果核对示例/);
+  assert.match(workspace,/OCR 未接入/);
 });
 
 test("设置页区分连接中、已连接和未连接并可手动重试", async () => {

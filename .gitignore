@@ -41,3 +41,19 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+
+# local computer-vision environments, private samples, models and results
+/vision/.venv*/
+/vision/.pytest_cache/
+**/__pycache__/
+*.py[cod]
+/vision/src/*.egg-info/
+/vision/data/raw/**
+!/vision/data/raw/
+/vision/data/dataset/
+/vision/models/*
+!/vision/models/README.md
+/vision/outputs/*
+!/vision/outputs/README.md
+*.pt
+*.onnx
