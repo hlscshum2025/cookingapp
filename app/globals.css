@@ -244,6 +244,13 @@ th { background:#f3eee3; color:#657066; text-transform:uppercase; letter-spacing
 .source-review-card.is-floating .floating-video-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 2px 9px; }
 .source-review-card.is-floating .floating-video-head b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
 .source-review-card.is-floating .floating-video-head button { flex:0 0 auto; border:0; border-radius:99px; padding:6px 9px; background:#eee8dc; color:var(--ink); font-size:11px; font-weight:800; }
+.source-review-card.is-floating .floating-workspace-collapse { position:relative; width:38px; height:34px; padding:0; border-radius:11px; display:grid; place-items:center; background:var(--leaf-soft); color:var(--leaf); }
+.source-review-card.is-floating .floating-workspace-collapse span { font-size:20px; line-height:1; transform:translateY(-2px); }
+.source-review-card.is-floating .floating-workspace-collapse::after { content:""; position:absolute; left:9px; right:9px; bottom:6px; height:2px; border-radius:99px; background:currentColor; }
+.floating-video-controls { display:flex; gap:8px; padding:0 0 9px; }
+.floating-video-controls button { min-height:40px; flex:1; border:1px solid #b7cfbe; border-radius:12px; background:var(--leaf-soft); color:var(--leaf); font-size:12px; font-weight:900; }
+.floating-video-controls button:last-child { border-color:#d8cfc0; background:#f4efe5; color:var(--ink); }
+.floating-video-controls button:active { transform:translateY(1px); }
 .source-review-card.is-floating .source-detail-head,.source-review-card.is-floating .source-description,.source-review-card.is-floating .source-actions,.source-review-card.is-floating>.notice { display:none; }
 .source-review-card.is-floating.is-collapsed { width:min(300px,calc(100vw - 48px)); }
 .source-review-card.is-floating.is-collapsed .video-frame { display:none; }
