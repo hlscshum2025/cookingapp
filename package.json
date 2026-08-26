@@ -8,6 +8,7 @@
   "scripts": {
     "install:ci": "bash scripts/install-ci.sh",
     "dev": "vinext dev",
+    "dev:mobile": "vinext dev --hostname 0.0.0.0",
     "build": "bash scripts/build-verified.sh",
     "start": "vinext start",
     "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs",

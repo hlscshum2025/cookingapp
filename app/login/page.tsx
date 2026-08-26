@@ -4,6 +4,7 @@ import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { connectSupabase, getTurnstileSiteKey } from "@/lib/supabase";
+import { isLocalDevelopmentHostname } from "@/lib/browser-environment";
 
 declare global {
   interface Window {
@@ -18,10 +19,6 @@ declare global {
 function safeNext(){
   const value=new URLSearchParams(window.location.search).get("next")||"/";
   return value.startsWith("/")&&!value.startsWith("//")?value:"/";
-}
-
-function isLocalHostname(hostname:string){
-  return hostname==="localhost"||hostname==="127.0.0.1"||hostname==="::1";
 }
 
 export default function LoginPage(){
@@ -63,7 +60,7 @@ export default function LoginPage(){
   },[localDev,mode,turnstileSiteKey]);
 
   useEffect(()=>{
-    const local=isLocalHostname(window.location.hostname);
+    const local=isLocalDevelopmentHostname(window.location.hostname);
     setLocalDev(local);
     setEnvironmentChecked(true);
     if(local){setTurnstileChecked(true);return;}
@@ -199,7 +196,7 @@ export default function LoginPage(){
     {!localDev&&turnstileSiteKey&&<Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={renderCaptcha}/>}
     <div className="auth-card">
       <div className="auth-brand"><span className="brand-mark">♨</span><span><strong>CookingApp</strong><small>我的做菜知识库</small></span></div>
-      {localDev&&<div className="notice" style={{marginBottom:16,background:"var(--leaf-soft)",color:"var(--leaf)"}}><b>开发环境</b>：localhost 已跳过 Cloudflare Turnstile。开发 Supabase 项目也需要关闭 CAPTCHA；正式网站仍保持人机验证。</div>}
+      {localDev&&<div className="notice" style={{marginBottom:16,background:"var(--leaf-soft)",color:"var(--leaf)"}}><b>本机／局域网开发环境</b>：已跳过网页端 Cloudflare Turnstile。手机可用同一 Wi-Fi 下的电脑局域网地址登录；开发 Supabase 项目也需要关闭 CAPTCHA，正式网站仍保持人机验证。</div>}
       {mode==="login"&&<>
         <p className="eyebrow">WELCOME BACK</p><h1>登录 CookingApp</h1>
         <p className="subtitle">使用你的 CookingApp 账号邮箱和密码。这里不需要 ChatGPT、GitHub 或 Supabase Dashboard 账号。</p>

@@ -180,3 +180,22 @@ test("总览粮仓区分冰箱与储物柜并统一确认删除",async()=>{
   assert.match(pantry,/storage_location/);
   assert.match(pantry,/removePantryItems/);
 });
+
+test("手机端第二轮适配覆盖安全区、账号语言和长表单核验入口",async()=>{
+  const shell=await readFile(new URL("../components/AppShell.tsx",import.meta.url),"utf8");
+  const manual=await readFile(new URL("../components/ManualRecipeEntry.tsx",import.meta.url),"utf8");
+  const settings=await readFile(new URL("../app/settings/page.tsx",import.meta.url),"utf8");
+  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+  const pkg=JSON.parse(await readFile(new URL("../package.json",import.meta.url),"utf8"));
+  assert.match(shell,/mobile-language-row/);
+  assert.match(shell,/LanguageSelect compact/);
+  assert.match(shell,/aria-current/);
+  assert.match(manual,/mobile-manual-toolbar/);
+  assert.match(manual,/manual-review-panel/);
+  assert.match(settings,/settings-account-stats/);
+  assert.match(css,/safe-area-inset-bottom/);
+  assert.match(css,/font-size:16px/);
+  assert.match(css,/scroll-snap-type:x proximity/);
+  assert.equal(pkg.scripts.dev,"vinext dev");
+  assert.equal(pkg.scripts["dev:mobile"],"vinext dev --hostname 0.0.0.0");
+});

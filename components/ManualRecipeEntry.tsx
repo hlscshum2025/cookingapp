@@ -133,6 +133,7 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
 
   return <form onSubmit={submit} className="manual-entry-layout">
     <datalist id="ingredient-unit-options">{ingredientUnits.map(unit=><option value={unit} key={unit}/>)}</datalist>
+    <div className="mobile-manual-toolbar"><span><b>草稿自动保存</b><small>继续填写不会丢失</small></span><button type="button" className="btn btn-secondary" onClick={()=>document.getElementById("manual-review-panel")?.scrollIntoView({behavior:"smooth",block:"start"})}>核验与保存 ↓</button></div>
     <section className="manual-entry-main">
       <div className="notice manual-draft-notice"><b>自动草稿已开启。</b> 输入内容会保存在当前浏览器；收起录入区、切换 CookingApp 页面或误点外部链接后，再回来仍可继续。正式保存到云端后会清除这份本机草稿。</div>
 
@@ -183,7 +184,7 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
     </section>
 
     <aside className="manual-entry-side">
-      <div className="panel" style={{ position: "sticky", top: 96 }}>
+      <div className="panel manual-review-panel" id="manual-review-panel">
         <p className="eyebrow">REVIEW</p><h2>核验与保存</h2>
         <div className="field"><label>当前核验状态</label><select value={draft.review.verificationStatus} onChange={(event) => setDraft((current) => ({ ...current, review: { ...current.review, verificationStatus: event.target.value as ManualRecipeDraft["review"]["verificationStatus"] } }))}><option value="unverified">未核验</option><option value="ai_suggested">AI 建议</option><option value="source_verified">已对照来源</option><option value="user_verified">已人工确认</option></select></div>
         <div className="field" style={{ marginTop: 14 }}><label>核验备注</label><textarea value={draft.review.note} onChange={(event) => setDraft((current) => ({ ...current, review: { ...current.review, note: event.target.value } }))} placeholder="例如：克数来自画面/原网页，仍有字段待核验"/></div>
