@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { prepareBilibiliImport, type PreparedBilibiliImport } from "@/lib/bilibili";
 import { useCooking } from "@/components/CookingProvider";
 import { ManualRecipeEntry } from "@/components/ManualRecipeEntry";
@@ -42,6 +42,7 @@ export function ImportWorkspace(){
   const [result,setResult]=useState<ImportResult|null>(null);
   const [busy,setBusy]=useState(false);
   const [deleting,setDeleting]=useState(false);
+  const bilibiliPlayerRef=useRef<HTMLIFrameElement>(null);
 
   const refreshPending=useCallback(async()=>{
     if(cloudStatus!=="connected"){setPendingVideos([]);return;}
@@ -66,6 +67,12 @@ export function ImportWorkspace(){
 
   const chooseVideo=(id:string)=>{setSelectedId(id);setManualOpen(false);setVideoCollapsed(false);};
   const startManual=()=>{if(selected){setManualOpen(true);setVideoCollapsed(false);window.setTimeout(()=>document.getElementById("manual-workspace")?.scrollIntoView({behavior:"smooth"}),0);}};
+  const controlBilibili=(command:"play"|"pause")=>{
+    bilibiliPlayerRef.current?.contentWindow?.postMessage(
+      JSON.stringify({event:"command",func:command,args:""}),
+      "https://player.bilibili.com",
+    );
+  };
   const pick=async(file?:File)=>{if(!file)return;setError("");setResult(null);try{setPrepared(prepareBilibiliImport(JSON.parse(await file.text()),file.name));}catch(reason){setPrepared(null);setError(reason instanceof Error?reason.message:"JSON 读取失败");}};
   const confirm=async()=>{
     if(!prepared)return;setBusy(true);setError("");
@@ -119,8 +126,8 @@ export function ImportWorkspace(){
       <aside className="panel source-browser"><input className="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="搜索标题、平台、作者或来源ID" aria-label="搜索待处理来源"/><div className="source-video-list">{filteredVideos.map(video=><button key={video.id} className={selected?.id===video.id?"active":""} onClick={()=>chooseVideo(video.id)}><span className="source-thumb">{video.coverUrl?<span className="source-thumb-image" style={{backgroundImage:`url(${JSON.stringify(video.coverUrl)})`}}/>:<span>{platformLabel(video.platform)}</span>}</span><span><strong>{video.title}</strong><small>{platformLabel(video.platform)} · {video.uploaderName||video.externalId}</small></span></button>)}</div></aside>
       {selected&&<section className={`source-review ${manualOpen?"floating-active":""}`}><div className={`panel source-review-card ${manualOpen&&selectedIsBilibili?"is-floating":""} ${videoCollapsed?"is-collapsed":""}`}>
         <div className="source-actions compact-actions"><a className="btn btn-secondary" href={selected.url} target="_blank" rel="noreferrer">打开{platformLabel(selected.platform)}原页面 ↗</a>{manualOpen&&selectedIsBilibili&&<button type="button" className="btn btn-secondary" onClick={()=>setVideoCollapsed(value=>!value)}>{videoCollapsed?"显示视频":"收起视频"}</button>}</div>
-        {manualOpen&&selectedIsBilibili&&<div className="floating-video-head"><b>边看边录：{selected.title}</b></div>}
-        {selectedIsBilibili?<div className="video-frame"><iframe key={selected.externalId} title={`B站视频：${selected.title}`} src={`https://player.bilibili.com/player.html?bvid=${encodeURIComponent(selected.externalId)}&high_quality=1&autoplay=0&danmaku=0`} allow="fullscreen; picture-in-picture" allowFullScreen/></div>:<div className="notice source-external-notice"><b>{platformLabel(selected.platform)}来源</b><br/>该平台不在 CookingApp 内嵌，以免受到登录、跳转和跨域限制。请打开原页面查看，CookingApp 保留来源文本供你对照录入。</div>}
+        {manualOpen&&selectedIsBilibili&&<><div className="floating-video-head"><b>边看边录：{selected.title}</b><button type="button" className="floating-workspace-collapse" onClick={()=>setManualOpen(false)} aria-label="收起人工导入界面" title="收起人工导入界面"><span aria-hidden="true">↥</span></button></div>{!videoCollapsed&&<div className="floating-video-controls" aria-label="视频播放控制"><button type="button" onClick={()=>controlBilibili("play")}>▶ 开始</button><button type="button" onClick={()=>controlBilibili("pause")}>Ⅱ 暂停</button></div>}</>}
+        {selectedIsBilibili?<div className="video-frame"><iframe ref={bilibiliPlayerRef} key={selected.externalId} title={`B站视频：${selected.title}`} src={`https://player.bilibili.com/player.html?bvid=${encodeURIComponent(selected.externalId)}&high_quality=1&autoplay=0&danmaku=0`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen/></div>:<div className="notice source-external-notice"><b>{platformLabel(selected.platform)}来源</b><br/>该平台不在 CookingApp 内嵌，以免受到登录、跳转和跨域限制。请打开原页面查看，CookingApp 保留来源文本供你对照录入。</div>}
         <div className="source-detail-head"><div><p className="eyebrow">{platformLabel(selected.platform)} · {selected.externalId}</p><h2>{selected.title}</h2><p className="subtitle">{selected.uploaderName||"作者未知"}{selectedIsBilibili?` · ${durationLabel(selected.durationSeconds)}`:""}</p></div><span className={`badge ${selected.availability==="available"?"":"warn"}`}>{selected.availability==="available"?"可访问":"需核验"}</span></div>
         {selected.description&&<p className="source-description">{selected.description}</p>}
         <div className="source-actions"><button className="btn btn-primary" onClick={startManual}>进入手动录入 →</button><button className="btn btn-danger" onClick={deleteSelected} disabled={deleting}>{deleting?"正在删除…":"删除这个来源"}</button></div>
