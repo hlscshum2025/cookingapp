@@ -53,7 +53,7 @@ export function Dashboard() {
 
   return <div className="page">
     <section className="hero">
-      <div className="hero-copy"><p className="eyebrow" style={{color:"#f0c89e"}}>YOUR PERSONAL COOKBOOK</p><h1>今天，想做点<br/>真正成功过的。</h1><p>把 B 站收藏整理成自己的版本，记录每次调整；以后不再重新翻视频找克数和火候。</p><div className="hero-actions"><Link href="/recipes/new" className="btn btn-primary">＋ 新建菜谱</Link><Link href="/imports" className="btn btn-secondary">导入收藏夹</Link></div></div>
+      <div className="hero-copy"><p className="eyebrow" style={{color:"#f0c89e"}}>YOUR PERSONAL COOKBOOK</p><h1>今天，想做点<br/>真正成功过的。</h1><p>把 B 站收藏整理成自己的版本，记录每次调整；以后不再重新翻视频找克数和火候。</p><div className="hero-actions"><Link prefetch={false} href="/recipes/new" className="btn btn-primary">＋ 新建菜谱</Link><Link prefetch={false} href="/imports" className="btn btn-secondary">导入收藏夹</Link></div></div>
       <div className="hero-board"><div className="mini-stat"><strong>{successful}</strong><span>已验证成功</span></div><div className="mini-stat"><strong>{inbox}</strong><span>等待整理</span></div><div className="mini-stat"><strong>{logs.length}</strong><span>制作记录</span></div><div className="mini-stat"><strong>3</strong><span>中英德语言</span></div></div>
     </section>
     <section className="stats"><div className="stat"><div className="stat-label">全部菜谱</div><div className="stat-value">{recipes.length}</div><small>个人知识库</small></div><div className="stat"><div className="stat-label">常做</div><div className="stat-value">{recipes.filter(r=>r.status==="favorite").length}</div><small>随时可复刻</small></div><div className="stat"><div className="stat-label">待尝试</div><div className="stat-value">{recipes.filter(r=>r.status==="to_try").length}</div><small>下一批候选</small></div><div className="stat"><div className="stat-label">我的粮仓</div><div className="stat-value">{pantry.length}</div><small>冰箱 / 储物柜</small></div></section>
@@ -65,10 +65,10 @@ export function Dashboard() {
         {pantryError&&<div className="notice" role="alert" style={{marginTop:12,background:"#fbe5de",color:"#923c29"}}>{pantryError}</div>}
         {deleteQueue.length>0&&<div className="pantry-delete-queue" role="status"><div><b>删除队列：{deleteQueue.length} 项</b><small>红色框内的食材将在确认后统一删除。</small></div><button className="btn btn-secondary" type="button" onClick={()=>setDeleteQueue([])}>全部取消</button><button className="btn btn-danger" type="button" disabled={pantryBusy} onClick={()=>void confirmDelete()}>{pantryBusy?"正在删除…":"确认统一删除"}</button></div>}
       </>:<div className="notice">登录后线上冰箱会按账号保存在云端，并在不同设备之间同步。</div>}
-      <div style={{marginTop:14}}><Link href="/translations" className="btn btn-secondary">打开采购清单 →</Link></div>
+      <div style={{marginTop:14}}><Link prefetch={false} href="/translations" className="btn btn-secondary">打开采购清单 →</Link></div>
     </section>
 
-    <div className="section-head"><h2>最近更新</h2><Link href="/recipes">查看全部 →</Link></div>
+    <div className="section-head"><h2>最近更新</h2><Link prefetch={false} href="/recipes">查看全部 →</Link></div>
     <div className="recipe-grid">{recipes.slice(0,3).map(recipe=><RecipeCard recipe={recipe} key={recipe.id}/>)}</div>
   </div>;
 }
