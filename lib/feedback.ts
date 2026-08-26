@@ -1,4 +1,4 @@
-import { getSupabase } from "./supabase";
+import { getSessionUser, getSupabase } from "./supabase";
 
 export type FeedbackCategory="platform_request"|"bug"|"feature"|"content_change";
 export type FeedbackStatus="new"|"triaged"|"planned"|"resolved"|"declined";
@@ -26,8 +26,8 @@ function mapFeedback(row:Record<string,unknown>):FeedbackSubmission{
 
 export async function submitFeedback(input:{category:FeedbackCategory;title:string;details:string;context?:Record<string,unknown>}){
   const s=getSupabase();if(!s)throw new Error("Supabase 尚未连接。");
-  const {data:{user},error:userError}=await s.auth.getUser();
-  if(userError||!user)throw new Error("请先登录再提交建议。");
+  const user=await getSessionUser(s);
+  if(!user)throw new Error("请先登录再提交建议。");
   const {data,error}=await s.from("feedback_submissions").insert({
     owner_id:user.id,category:input.category,title:input.title.trim(),details:input.details.trim(),context:input.context||{},
   }).select("*").single();
@@ -37,7 +37,7 @@ export async function submitFeedback(input:{category:FeedbackCategory;title:stri
 
 export async function loadMyFeedback(){
   const s=getSupabase();if(!s)return [];
-  const {data:{user}}=await s.auth.getUser();if(!user)return [];
+  const user=await getSessionUser(s);if(!user)return [];
   const {data,error}=await s.from("feedback_submissions").select("*").eq("owner_id",user.id).order("created_at",{ascending:false}).limit(20);
   if(error)throw error;
   return (data||[]).map(row=>mapFeedback(row as Record<string,unknown>));
@@ -52,7 +52,7 @@ export async function loadFeedbackQueue(){
 
 export async function reviewFeedback(id:string,input:{status:FeedbackStatus;priority:FeedbackPriority;adminNote:string}){
   const s=getSupabase();if(!s)throw new Error("Supabase 尚未连接。");
-  const {data:{user}}=await s.auth.getUser();if(!user)throw new Error("请先登录。");
+  const user=await getSessionUser(s);if(!user)throw new Error("请先登录。");
   const {error}=await s.from("feedback_submissions").update({status:input.status,priority:input.priority,admin_note:input.adminNote.trim()||null,reviewed_by:user.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",id);
   if(error)throw error;
 }

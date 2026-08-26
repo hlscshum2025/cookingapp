@@ -1,5 +1,5 @@
 import type { PublicRecipe, PublicationRequest, Recipe } from "./types";
-import { getSupabase } from "./supabase";
+import { getSessionUser, getSupabase } from "./supabase";
 
 function normalizePublicRecipe(row:Record<string,unknown>,likedByMe=false):PublicRecipe{
   const recipe={...(row.snapshot as Recipe),visibility:"public" as const};
@@ -31,7 +31,7 @@ function normalizeRequest(row:Record<string,unknown>):PublicationRequest{
 async function loadMyLikedRecipeIds(){
   const s=getSupabase();
   if(!s)return new Set<string>();
-  const {data:{user}}=await s.auth.getUser();
+  const user=await getSessionUser(s);
   if(!user)return new Set<string>();
   const {data,error}=await s.from("public_recipe_likes").select("recipe_id").eq("user_id",user.id);
   if(error){
@@ -82,8 +82,7 @@ export async function loadPublicRecipe(recipeId:string):Promise<PublicRecipe|nul
 export async function togglePublicRecipeLike(recipeId:string,currentlyLiked:boolean){
   const s=getSupabase();
   if(!s)throw new Error("Supabase 尚未连接。");
-  const {data:{user},error:userError}=await s.auth.getUser();
-  if(userError)throw userError;
+  const user=await getSessionUser(s);
   if(!user)throw new Error("请先登录后再点赞。");
   if(currentlyLiked){
     const {error}=await s.from("public_recipe_likes").delete().eq("recipe_id",recipeId).eq("user_id",user.id);

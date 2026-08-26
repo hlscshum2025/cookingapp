@@ -1,6 +1,6 @@
 import type { SourceVideo } from "./types";
 import type { ImportedSourceDraft } from "./source-adapters";
-import { getSupabase } from "./supabase";
+import { getSessionUser, getSupabase } from "./supabase";
 
 function mapSource(row:Record<string,unknown>):SourceVideo{
   const raw=row.raw_metadata&&typeof row.raw_metadata==="object"&&!Array.isArray(row.raw_metadata)
@@ -30,8 +30,7 @@ function mapSource(row:Record<string,unknown>):SourceVideo{
 async function requireUser(){
   const s=getSupabase();
   if(!s)throw new Error("Supabase 尚未连接。");
-  const {data:{user},error}=await s.auth.getUser();
-  if(error)throw error;
+  const user=await getSessionUser(s);
   if(!user)throw new Error("请先登录 CookingApp。");
   return {s,user};
 }
@@ -41,8 +40,7 @@ const sourceSelect="id,platform,external_id,url,title,uploader_name,cover_url,de
 export async function loadPendingSourceVideos():Promise<SourceVideo[]>{
   const s=getSupabase();
   if(!s)return [];
-  const {data:{user},error:userError}=await s.auth.getUser();
-  if(userError)throw userError;
+  const user=await getSessionUser(s);
   if(!user)return [];
   const {data,error}=await s
     .from("source_videos")

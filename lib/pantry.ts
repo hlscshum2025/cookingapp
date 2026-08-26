@@ -1,5 +1,5 @@
 import { findKitchenEntry } from "./kitchen-dictionary";
-import { getSupabase } from "./supabase";
+import { getSessionUser, getSupabase } from "./supabase";
 
 export type PantryItem={
   id:string;
@@ -42,21 +42,19 @@ function mapPantry(row:Record<string,unknown>):PantryItem{
 async function requireUser(){
   const s=getSupabase();
   if(!s)throw new Error("Supabase 尚未连接。");
-  const {data:{user},error}=await s.auth.getUser();
-  if(error)throw error;
+  const user=await getSessionUser(s);
   if(!user)throw new Error("请先登录 CookingApp。");
   return {s,user};
 }
 
-export async function loadPantryItems():Promise<PantryItem[]>{
+export async function loadPantryItems(knownUserId?:string):Promise<PantryItem[]>{
   const s=getSupabase();
   if(!s)return [];
-  const {data:{user},error:userError}=await s.auth.getUser();
-  if(userError)throw userError;
-  if(!user)return [];
+  const userId=knownUserId||(await getSessionUser(s))?.id;
+  if(!userId)return [];
   const {data,error}=await s.from("pantry_items")
     .select("id,ingredient_key,name,category,storage_location,created_at,updated_at")
-    .eq("owner_id",user.id)
+    .eq("owner_id",userId)
     .order("updated_at",{ascending:false});
   if(error)throw error;
   return (data||[]).map(row=>mapPantry(row as Record<string,unknown>));
