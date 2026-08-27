@@ -51,6 +51,8 @@ next-env.d.ts
 /vision/data/raw/**
 !/vision/data/raw/
 /vision/data/dataset/
+/vision/data/receipt_manifest.csv
+/vision/data/receipt_ground_truth.jsonl
 /vision/models/*
 !/vision/models/README.md
 /vision/outputs/*
