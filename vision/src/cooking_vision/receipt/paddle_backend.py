@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
 from cooking_vision.contracts import BoundingBox, OcrTextLine
@@ -26,7 +27,8 @@ def _box(raw_box:Any,raw_polygon:Any)->BoundingBox:
     return BoundingBox(min(xs),min(ys),max(xs),max(ys))
 
 
-def run_paddle_ocr(image:Any,language:str="german",device:str="cpu",min_confidence:float=.35)->tuple[list[OcrTextLine],list[dict[str,Any]],str]:
+@lru_cache(maxsize=4)
+def _load_pipeline(language:str,device:str)->tuple[Any,str]:
     try:
         import paddleocr
         from paddleocr import PaddleOCR
@@ -40,6 +42,11 @@ def run_paddle_ocr(image:Any,language:str="german",device:str="cpu",min_confiden
         use_textline_orientation=False,
         device=device,
     )
+    return pipeline,getattr(paddleocr,"__version__","unknown")
+
+
+def run_paddle_ocr(image:Any,language:str="german",device:str="cpu",min_confidence:float=.35)->tuple[list[OcrTextLine],list[dict[str,Any]],str]:
+    pipeline,version=_load_pipeline(language,device)
     outputs=list(pipeline.predict(image))
     lines:list[OcrTextLine]=[]
     raw_outputs:list[dict[str,Any]]=[]
@@ -64,4 +71,4 @@ def run_paddle_ocr(image:Any,language:str="german",device:str="cpu",min_confiden
             raw_polygon=polygons[index] if index<len(polygons) else None
             lines.append(OcrTextLine(text=str(text),confidence=confidence,bbox=_box(raw_box,raw_polygon)))
     lines.sort(key=lambda line:(line.bbox.y_min,line.bbox.x_min))
-    return lines,raw_outputs,getattr(paddleocr,"__version__","unknown")
+    return lines,raw_outputs,version
