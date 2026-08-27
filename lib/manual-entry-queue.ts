@@ -92,12 +92,19 @@ export async function queueManualEntry(userId:string,payload:ManualEntryPayload)
   try{
     const transaction=database.transaction(STORE_NAME,"readwrite");
     const store=transaction.objectStore(STORE_NAME);
-    const existing=await requestResult(store.index("user_identity").get([clean,identity])) as StoredQueuedManualEntry|undefined;
-    const now=new Date().toISOString();
-    const queued:StoredQueuedManualEntry=existing
-      ?{...existing,payload,updatedAt:now,lastError:""}
-      :{id:createId(),userId:clean,identity,payload,queuedAt:now,updatedAt:now,attempts:0,lastError:""};
-    store.put(queued);
+    const queued=await new Promise<StoredQueuedManualEntry>((resolve,reject)=>{
+      const request=store.index("user_identity").get([clean,identity]);
+      request.addEventListener("success",()=>{
+        const existing=request.result as StoredQueuedManualEntry|undefined;
+        const now=new Date().toISOString();
+        const next:StoredQueuedManualEntry=existing
+          ?{...existing,payload,updatedAt:now,lastError:""}
+          :{id:createId(),userId:clean,identity,payload,queuedAt:now,updatedAt:now,attempts:0,lastError:""};
+        store.put(next);
+        resolve(next);
+      },{once:true});
+      request.addEventListener("error",()=>reject(request.error??new Error("本机队列查重失败。")),{once:true});
+    });
     await transactionDone(transaction);
     notify(clean);
     return publicEntry(queued);
@@ -110,8 +117,15 @@ export async function removeQueuedManualEntry(userId:string,id:string){
   try{
     const transaction=database.transaction(STORE_NAME,"readwrite");
     const store=transaction.objectStore(STORE_NAME);
-    const existing=await requestResult(store.get(id)) as StoredQueuedManualEntry|undefined;
-    if(existing?.userId===clean)store.delete(id);
+    await new Promise<void>((resolve,reject)=>{
+      const request=store.get(id);
+      request.addEventListener("success",()=>{
+        const existing=request.result as StoredQueuedManualEntry|undefined;
+        if(existing?.userId===clean)store.delete(id);
+        resolve();
+      },{once:true});
+      request.addEventListener("error",()=>reject(request.error??new Error("本机队列项目读取失败。")),{once:true});
+    });
     await transactionDone(transaction);
     notify(clean);
   }finally{database.close();}
@@ -123,8 +137,15 @@ export async function markQueuedManualEntryFailed(userId:string,id:string,error:
   try{
     const transaction=database.transaction(STORE_NAME,"readwrite");
     const store=transaction.objectStore(STORE_NAME);
-    const existing=await requestResult(store.get(id)) as StoredQueuedManualEntry|undefined;
-    if(existing?.userId===clean)store.put({...existing,attempts:existing.attempts+1,lastError:error,updatedAt:new Date().toISOString()});
+    await new Promise<void>((resolve,reject)=>{
+      const request=store.get(id);
+      request.addEventListener("success",()=>{
+        const existing=request.result as StoredQueuedManualEntry|undefined;
+        if(existing?.userId===clean)store.put({...existing,attempts:existing.attempts+1,lastError:error,updatedAt:new Date().toISOString()});
+        resolve();
+      },{once:true});
+      request.addEventListener("error",()=>reject(request.error??new Error("本机队列项目读取失败。")),{once:true});
+    });
     await transactionDone(transaction);
     notify(clean);
   }finally{database.close();}
