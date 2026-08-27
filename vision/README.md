@@ -61,6 +61,12 @@ cooking-vision preprocess data\raw\receipts\receipt.jpg --output outputs\receipt
 # 德国小票 OCR，输出可人工核验的 JSON
 cooking-vision receipt data\raw\receipts\receipt.jpg --output outputs\receipt.json
 
+# 批量处理整个小票目录；重用同一个 PaddleOCR 实例并生成 summary.csv
+cooking-vision receipt-batch data\\raw\\receipts --output outputs\\receipt-batch
+
+# 调试图像预处理时额外保存每张小票的中间图
+cooking-vision receipt-batch data\\raw\\receipts --output outputs\\receipt-batch --save-stages
+
 # 冰箱照片
 cooking-vision detect data\raw\fridge\fridge.jpg --scene fridge --output outputs\fridge.json
 
@@ -76,6 +82,7 @@ cooking-vision detect data\raw\bagged\bag.jpg --scene bagged --output outputs\ba
 ## 当前代码边界
 
 - 已实现：Unicode 路径读取、缩放、灰度/CLAHE、去噪、二值化、票据轮廓与透视矫正、PaddleOCR 3.x 结果适配、基础价格/数量候选解析、YOLO-World 自定义类别检测、统一 JSON 契约。
+- OCR 候选还包含：同行商品名/价格框合并、商店/日期/时间/总额候选、多件装与单价解析、批量 JSON 和 CSV 汇总。
 - 已留接口：商品别名映射、实例分割、条码、重量、跨帧去重、precision/recall 评估、Supabase 人工核验写入。
 - 尚未完成：真实德国小票与冰箱照片的误差统计。没有真实样本结果前，任何候选都不能自动写库存、采购或成本。
 
