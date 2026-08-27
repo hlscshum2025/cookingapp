@@ -26,6 +26,16 @@ def build_parser()->argparse.ArgumentParser:
     receipt.add_argument("--min-confidence",type=float,default=.35)
     receipt.add_argument("--max-side",type=int,default=2200)
 
+    receipt_batch=commands.add_parser("receipt-batch",help="Run receipt OCR for a local image directory")
+    receipt_batch.add_argument("input",type=Path)
+    receipt_batch.add_argument("--output",type=Path,default=Path("outputs/receipt-batch"))
+    receipt_batch.add_argument("--language",default="german")
+    receipt_batch.add_argument("--device",default="cpu")
+    receipt_batch.add_argument("--min-confidence",type=float,default=.35)
+    receipt_batch.add_argument("--max-side",type=int,default=2200)
+    receipt_batch.add_argument("--save-stages",action="store_true")
+    receipt_batch.add_argument("--no-recursive",action="store_true")
+
     detect=commands.add_parser("detect",help="Detect food candidates with YOLO-World")
     detect.add_argument("image",type=Path)
     detect.add_argument("--scene",choices=["fridge","tabletop","bagged","unknown"],default="unknown")
@@ -74,6 +84,22 @@ def main(argv:Sequence[str]|None=None)->int:
         path=write_json(draft.to_dict(),args.output)
         print(f"OCR lines: {len(draft.lines)}, item candidates: {len(draft.items)}")
         print(path)
+        return 0
+    if args.command=="receipt-batch":
+        from cooking_vision.receipt.batch import run_receipt_batch
+        rows,summary=run_receipt_batch(
+            args.input,
+            args.output,
+            language=args.language,
+            device=args.device,
+            min_confidence=args.min_confidence,
+            max_side=args.max_side,
+            save_stages=args.save_stages,
+            recursive=not args.no_recursive,
+        )
+        succeeded=sum(row["status"]=="ok" for row in rows)
+        print(f"Receipts: {len(rows)}, succeeded: {succeeded}, failed: {len(rows)-succeeded}")
+        print(summary)
         return 0
     if args.command=="detect":
         from cooking_vision.detection.yolo_world import detect_food_candidates
