@@ -1,0 +1,2 @@
+receipt_id,split,image_path,store_name,purchase_date,purchase_time,total_amount,expected_item_count,capture_condition,notes
+receipt-001,dev,data/raw/receipts/receipt-001.jpg,REWE,2026-08-27,18:42,18.42,7,flat,
