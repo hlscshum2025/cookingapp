@@ -1,11 +1,21 @@
 # CookingApp 版本与项目总日志
 
-最后更新：2026-08-26
+最后更新：2026-08-27
 当前基线：`v1.2.2+20260811.06`
 
 本文是 CookingApp 的统一版本日志和项目进度索引。它记录已经完成、已经部署、仍需真实验收和已推迟的事项。正式菜谱、私人日志、备份和密钥不进入 GitHub。
 
 ## 最新发布记录
+
+### V2 PWA / 本机批量队列 / 识别数据库契约 - 2026-08-27（代码完成，待 Sites 实机验收）
+
+- 导入中心加入账号隔离的 IndexedDB 本机待上传队列；可连续整理多道下厨房菜谱，一键顺序上传，成功项移除、失败项保留供重试。
+- PWA 加入完整 manifest、192/512/maskable/Apple 图标、Service Worker、离线页和设置页安装引导；首版不缓存 API、Supabase 私人响应或用户页面。
+- `receipt-ocr-draft-v1` 与 `vision-candidate-v1` 的 TypeScript 契约已和 Python JSON 对齐；DEV 新增视觉候选、词典关联、采购/粮仓关联及私有图片桶。
+- 识别结果仍是候选：没有 `user_verified` 不得生成正式采购事实或关联粮仓；PROD 本批次不迁移 OCR/视觉表。
+- 餐食财务无刷新切换与聚餐角色认领已由用户确认通过，归档到 `00_v2_development_history.md`。
+- 模块化方案加入 V4：一次安装 PWA 外壳，业务按路由加载；后续拆分 `CookingProvider` 和 domain repository，不制作当前无必要的 Windows `.exe`。
+- 生产构建通过，58/58 Node 回归测试通过；本批次改动文件 ESLint 0 error（保留一个既有 `<img>` 性能提示）。
 
 ### V2 开发批次 - 2026-08-26（代码同步 GitHub，未重新部署）
 

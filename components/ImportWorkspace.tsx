@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { prepareBilibiliImport, type PreparedBilibiliImport } from "@/lib/bilibili";
 import { useCooking } from "@/components/CookingProvider";
 import { ManualRecipeEntry } from "@/components/ManualRecipeEntry";
+import { ManualUploadQueue } from "@/components/ManualUploadQueue";
 import { PlatformFeedbackForm } from "@/components/PlatformFeedbackForm";
 import { UniversalSourceImport, type ImportPlatform } from "@/components/UniversalSourceImport";
 import { discardPendingSourceVideo, loadPendingSourceVideos } from "@/lib/source-videos";
@@ -53,7 +54,7 @@ export function ImportWorkspace(){
     }catch(reason){setError(reason instanceof Error?reason.message:"来源读取失败。");}
   },[cloudStatus]);
 
-  useEffect(()=>{void refreshPending();},[refreshPending]);
+  useEffect(()=>{const timer=window.setTimeout(()=>{void refreshPending();},0);return()=>window.clearTimeout(timer);},[refreshPending]);
   const existing=useMemo(()=>new Set(sourceVideos.filter(video=>video.platform==="bilibili").map(video=>video.externalId)),[sourceVideos]);
   const filteredVideos=useMemo(()=>{
     const query=search.trim().toLowerCase();
@@ -94,6 +95,8 @@ export function ImportWorkspace(){
     {connectionNotice&&<div className="notice connection-notice">{connectionNotice}</div>}
     {error&&<div className="notice notice-error" role="alert">{error}</div>}
 
+    <ManualUploadQueue onUploaded={refreshPending}/>
+
     <div className={`import-platform-shell ${platform?`platform-${platform} is-open`:""}`}>
       <nav className="import-platform-nav" aria-label="来源平台">
         {platforms.map(item=><button type="button" key={item.id} className={platform===item.id?"active":platform?"inactive":""} aria-pressed={platform===item.id} aria-expanded={platform===item.id} onClick={()=>setPlatform(current=>current===item.id?null:item.id)}>
@@ -121,7 +124,7 @@ export function ImportWorkspace(){
       </section>}
     </div>
 
-    <div className="section-head pending-source-head"><div><p className="eyebrow">REVIEW QUEUE</p><h2>待处理来源与手工录入</h2><p className="subtitle">不论从哪个平台导入，都会先进入这里核验；保存正式菜谱后自动移出。</p></div><span className="badge">{filteredVideos.length}</span></div>
+    <div className="section-head pending-source-head"><div><p className="eyebrow">REVIEW QUEUE</p><h2>待处理来源与手工录入</h2><p className="subtitle">不论从哪个平台导入，都会先进入这里核验；存入本机队列后可继续下一道，统一上传成功后自动移出。</p></div><span className="badge">{filteredVideos.length}</span></div>
     {pendingVideos.length?<div className="source-workspace">
       <aside className="panel source-browser"><input className="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="搜索标题、平台、作者或来源ID" aria-label="搜索待处理来源"/><div className="source-video-list">{filteredVideos.map(video=><button key={video.id} className={selected?.id===video.id?"active":""} onClick={()=>chooseVideo(video.id)}><span className="source-thumb">{video.coverUrl?<span className="source-thumb-image" style={{backgroundImage:`url(${JSON.stringify(video.coverUrl)})`}}/>:<span>{platformLabel(video.platform)}</span>}</span><span><strong>{video.title}</strong><small>{platformLabel(video.platform)} · {video.uploaderName||video.externalId}</small></span></button>)}</div></aside>
       {selected&&<section className={`source-review ${manualOpen?"floating-active":""}`}><div className={`panel source-review-card ${manualOpen&&selectedIsBilibili?"is-floating":""} ${videoCollapsed?"is-collapsed":""}`}>
@@ -131,9 +134,9 @@ export function ImportWorkspace(){
         <div className="source-detail-head"><div><p className="eyebrow">{platformLabel(selected.platform)} · {selected.externalId}</p><h2>{selected.title}</h2><p className="subtitle">{selected.uploaderName||"作者未知"}{selectedIsBilibili?` · ${durationLabel(selected.durationSeconds)}`:""}</p></div><span className={`badge ${selected.availability==="available"?"":"warn"}`}>{selected.availability==="available"?"可访问":"需核验"}</span></div>
         {selected.description&&<p className="source-description">{selected.description}</p>}
         <div className="source-actions"><button className="btn btn-primary" onClick={startManual}>进入手动录入 →</button><button className="btn btn-danger" onClick={deleteSelected} disabled={deleting}>{deleting?"正在删除…":"删除这个来源"}</button></div>
-        <div className="notice source-save-note">保存手工菜谱后，对应来源会自动标记完成并从这里移出；菜谱仍保留原平台链接和作者信息。</div>
+        <div className="notice source-save-note">存入本机待上传队列不会立即移除来源；统一上传成功后，对应来源才会自动完成，菜谱仍保留原平台链接和作者信息。</div>
       </div></section>}
     </div>:<div className="panel empty"><span>✓</span><h2>待处理来源已经清空</h2><p>从上方选择平台，添加单个来源或批量导入 B站收藏夹。</p></div>}
-    {manualOpen&&selected&&<section id="manual-workspace" className="manual-workspace-section"><div className="section-head"><div><p className="eyebrow">MANUAL ENTRY</p><h2>手动录入：{selected.title}</h2><p className="subtitle">正式保存菜谱后，这条来源会自动标记完成。</p></div><button className="btn btn-secondary" onClick={()=>setManualOpen(false)}>收起录入区</button></div><ManualRecipeEntry key={selected.id} initialSource={selected}/></section>}
+    {manualOpen&&selected&&<section id="manual-workspace" className="manual-workspace-section"><div className="section-head"><div><p className="eyebrow">MANUAL ENTRY</p><h2>手动录入：{selected.title}</h2><p className="subtitle">先存入本机队列；统一上传成功后，这条来源才会自动标记完成。</p></div><button className="btn btn-secondary" onClick={()=>setManualOpen(false)}>收起录入区</button></div><ManualRecipeEntry key={selected.id} initialSource={selected}/></section>}
   </div>;
 }

@@ -6,6 +6,7 @@ import { useCooking } from "@/components/CookingProvider";
 import { connectSupabase } from "@/lib/supabase";
 import { FeedbackAdminPanel } from "@/components/FeedbackAdminPanel";
 import { useLocale } from "@/lib/i18n";
+import { PwaInstallPanel } from "@/components/PwaInstallPanel";
 
 export default function SettingsPage(){
   const {isDemo,cloudStatus,cloudError,currentUserEmail,lastCloudSync,refreshCloudData,resetDemo}=useCooking();
@@ -58,6 +59,7 @@ export default function SettingsPage(){
       </section>
       <aside className="panel"><h2>账号权限怎么理解</h2><p className="subtitle">普通用户和管理员都只能通过 RLS 读写自己的私人业务数据。管理员身份不会自动获得其他用户私人菜谱的读取权。</p><div className="notice" style={{marginTop:14}}><b>普通用户</b><br/>自己的菜谱、来源、日志、食材、导入、备份与合并恢复。</div><div className="notice" style={{marginTop:9,background:"var(--leaf-soft)",color:"var(--leaf)"}}><b>管理员</b><br/>在普通用户能力之上增加覆盖式恢复和后续平台诊断/运营入口。角色不能由前端自行修改。</div><details className="settings-backup"><summary>数据备份与恢复 <span>展开</span></summary><div className="settings-backup-content"><BackupRestorePanel/></div></details></aside>
     </div>
+    <div style={{marginTop:20}}><PwaInstallPanel/></div>
     <div style={{marginTop:20}}><FeedbackAdminPanel/></div>
   </div>;
 }

@@ -420,6 +420,20 @@ th { background:#f3eee3; color:#657066; text-transform:uppercase; letter-spacing
 .recipe-risk.risk-高风险 { border-color:#e3a898; background:var(--tomato-soft); color:#8b3926; }
 .mini-risk { font-weight:800; }
 .mini-risk.risk-高风险 { color:#9c3c28; }
+.manual-upload-queue { margin:18px 0; border-color:#b9cfbf; background:linear-gradient(145deg,#fffdf8,#f3f8f2); }
+.manual-upload-queue-list { margin-top:14px; }
+.manual-upload-queue-list>div { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.manual-upload-queue-list>div>span { min-width:0; margin:0; }
+.manual-upload-queue-list b { color:var(--ink); }
+.manual-upload-queue-list small { display:block; margin-top:4px; color:var(--muted); overflow-wrap:anywhere; }
+.manual-upload-queue-list .btn { flex:0 0 auto; }
+.compact-empty { min-height:0; padding:18px 8px; }
+.compact-empty span { font-size:22px; }
+.compact-empty p { margin:6px 0 0; color:var(--muted); }
+.pwa-install-panel { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:18px 28px; }
+.pwa-install-panel>.notice,.pwa-install-panel>.pwa-boundary { grid-column:1/-1; margin:0; }
+.pwa-install-status { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+.pwa-boundary { background:#f4f0e6; }
 
 @media (max-width: 1050px) {
   .recipe-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -469,6 +483,11 @@ th { background:#f3eee3; color:#657066; text-transform:uppercase; letter-spacing
   .pantry-delete-queue { grid-template-columns:1fr; }
   .connection-actions { grid-template-columns:1fr; }
   .connection-actions .btn { width:100%; }
+  .manual-upload-queue-list>div { align-items:flex-start; flex-direction:column; }
+  .manual-upload-queue-list .btn { width:100%; }
+  .pwa-install-panel { grid-template-columns:1fr; }
+  .pwa-install-status { justify-content:flex-start; }
+  .pwa-install-status .btn { width:100%; }
   .settings-account-stats { grid-template-columns:1fr; margin-bottom:16px; }
   .source-workspace { grid-template-columns:1fr; }
   .source-browser { position:static; max-height:none; }

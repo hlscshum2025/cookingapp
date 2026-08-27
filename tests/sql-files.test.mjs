@@ -41,7 +41,7 @@ test("反馈队列允许用户提交自己的反馈并限制管理员审核",asy
 });
 
 test("小票 OCR migration 保持原图、原始识别和采购记录为 owner-only",async()=>{
-  const sql=await readFile(new URL("../supabase/pending_migrations/202608220002_receipt_ocr_schema.sql",import.meta.url),"utf8");
+  const sql=await readFile(new URL("../supabase/pending_migrations/20260822092846_receipt_ocr_schema.sql",import.meta.url),"utf8");
   for(const table of ["shopping_receipts","receipt_ocr_runs","shopping_receipt_items","purchase_records","ingredient_market_aliases"]){
     assert.match(sql,new RegExp(`create table if not exists public\\.${table}`,"i"));
     assert.match(sql,new RegExp(`alter table public\\.${table} enable row level security`,"i"));
@@ -53,7 +53,7 @@ test("小票 OCR migration 保持原图、原始识别和采购记录为 owner-o
 });
 
 test("小票 OCR owner 复合外键都有覆盖索引",async()=>{
-  const sql=await readFile(new URL("../supabase/pending_migrations/202608220003_receipt_ocr_fk_indexes.sql",import.meta.url),"utf8");
+  const sql=await readFile(new URL("../supabase/pending_migrations/20260822092944_receipt_ocr_fk_indexes.sql",import.meta.url),"utf8");
   assert.match(sql,/receipt_ocr_runs\(receipt_id,owner_id,created_at desc\)/i);
   assert.match(sql,/shopping_receipt_items\(receipt_id,owner_id,created_at\)/i);
   assert.match(sql,/shopping_receipt_items\(ocr_run_id,owner_id\)/i);
@@ -78,8 +78,29 @@ test("活动 migration 与远端历史一致，待验收 OCR 不会自动部署"
   ]);
   const pending=(await readdir(new URL("../supabase/pending_migrations/",import.meta.url))).sort();
   assert.deepEqual(pending,[
-    "202608220002_receipt_ocr_schema.sql",
-    "202608220003_receipt_ocr_fk_indexes.sql",
+    "20260822092846_receipt_ocr_schema.sql",
+    "20260822092944_receipt_ocr_fk_indexes.sql",
+    "20260827062435_inventory_recognition_contract.sql",
     "README.md",
   ]);
+});
+
+test("物品识别候选只有人工确认后才能关联粮仓",async()=>{
+  const sql=await readFile(new URL("../supabase/pending_migrations/20260827062435_inventory_recognition_contract.sql",import.meta.url),"utf8");
+  assert.match(sql,/create table if not exists public\.inventory_observation_runs/i);
+  assert.match(sql,/create table if not exists public\.inventory_observation_items/i);
+  assert.match(sql,/pantry_item_id is null or verification_status='user_verified'/i);
+  assert.match(sql,/foreign key\(ingredient_id,owner_id\)[\s\S]+references public\.ingredients\(id,owner_id\)/i);
+  assert.match(sql,/inventory-images[\s\S]+public=false/i);
+  assert.match(sql,/alter table public\.inventory_observation_items enable row level security/i);
+});
+
+test("PWA 只缓存静态外壳，不缓存 API 和私人导航响应",async()=>{
+  const manifest=JSON.parse(await readFile(new URL("../public/manifest.webmanifest",import.meta.url),"utf8"));
+  const worker=await readFile(new URL("../public/sw.js",import.meta.url),"utf8");
+  assert.equal(manifest.display,"standalone");
+  assert.ok(manifest.icons.some(icon=>icon.sizes==="512x512"&&icon.purpose==="maskable"));
+  assert.match(worker,/url\.pathname\.startsWith\("\/api\/"\)/);
+  assert.match(worker,/request\.mode==="navigate"[\s\S]+fetch\(request\)\.catch\(\(\)=>caches\.match\(OFFLINE_URL\)\)/);
+  assert.doesNotMatch(worker,/cache\.put\(request[\s\S]+request\.mode==="navigate"/);
 });

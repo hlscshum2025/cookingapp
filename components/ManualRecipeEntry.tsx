@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useCooking } from "./CookingProvider";
 import {
@@ -12,7 +10,7 @@ import {
   type ManualEvidence,
   type ManualRecipeDraft,
 } from "@/lib/manual-entry";
-import { persistManualEntry } from "@/lib/supabase";
+import { queueManualEntry } from "@/lib/manual-entry-queue";
 import { parseBilibiliSubtitleExport } from "@/lib/video-review";
 import type { SourceVideo } from "@/lib/types";
 
@@ -36,8 +34,7 @@ function draftKey(source?:SourceVideo){
 }
 
 export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={}) {
-  const router=useRouter();
-  const { cloudStatus,refreshRecipe } = useCooking();
+  const { currentUserId } = useCooking();
   const storageKey=useMemo(()=>draftKey(initialSource),[initialSource]);
   const [draft, setDraft] = useState<ManualRecipeDraft>(() => createDraftFromSource(initialSource));
   const [draftReady,setDraftReady]=useState(false);
@@ -46,15 +43,20 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
   const [error, setError] = useState("");
 
   useEffect(()=>{
-    setDraftReady(false);
-    const fresh=createDraftFromSource(initialSource);
-    try{
-      const stored=window.localStorage.getItem(storageKey);
-      setDraft(stored?mergeStoredManualDraftWithSource(JSON.parse(stored) as ManualRecipeDraft,initialSource):fresh);
-    }catch{
-      setDraft(fresh);
-    }
-    setDraftReady(true);
+    let active=true;
+    queueMicrotask(()=>{
+      if(!active)return;
+      setDraftReady(false);
+      const fresh=createDraftFromSource(initialSource);
+      try{
+        const stored=window.localStorage.getItem(storageKey);
+        setDraft(stored?mergeStoredManualDraftWithSource(JSON.parse(stored) as ManualRecipeDraft,initialSource):fresh);
+      }catch{
+        setDraft(fresh);
+      }
+      setDraftReady(true);
+    });
+    return()=>{active=false;};
   },[initialSource,storageKey]);
 
   useEffect(()=>{
@@ -110,18 +112,15 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
     event.preventDefault();
     setError("");
     setMessage("");
-    if (cloudStatus !== "connected") {
-      setError("请先完成 CookingApp 登录并确认顶部显示“Supabase 已连接”。");
+    if (!currentUserId) {
+      setError("当前登录账号尚未恢复，暂时不能建立账号隔离的本机上传队列。");
       return;
     }
     setSaving(true);
     try {
-      const result = await persistManualEntry(prepareManualEntryPayload(draft));
-      if (!result) throw new Error("没有收到云端保存结果。");
+      const queued=await queueManualEntry(currentUserId,prepareManualEntryPayload(draft));
       try{window.localStorage.removeItem(storageKey);}catch{}
-      setMessage(`已保存来源、菜谱和第 ${result.versionNo} 个版本；正在打开菜谱。`);
-      await refreshRecipe(result.recipeId,result.sourceVideoId);
-      router.push(`/recipes/${result.recipeId}`);
+      setMessage(`“${queued.payload.recipe.title}”已存入本机待上传队列。你可以继续整理下一道，最后在导入中心一键上传。`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "保存失败。");
     } finally {
@@ -135,7 +134,7 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
     <datalist id="ingredient-unit-options">{ingredientUnits.map(unit=><option value={unit} key={unit}/>)}</datalist>
     <div className="mobile-manual-toolbar"><span><b>草稿自动保存</b><small>继续填写不会丢失</small></span><button type="button" className="btn btn-secondary" onClick={()=>document.getElementById("manual-review-panel")?.scrollIntoView({behavior:"smooth",block:"start"})}>核验与保存 ↓</button></div>
     <section className="manual-entry-main">
-      <div className="notice manual-draft-notice"><b>自动草稿已开启。</b> 输入内容会保存在当前浏览器；收起录入区、切换 CookingApp 页面或误点外部链接后，再回来仍可继续。正式保存到云端后会清除这份本机草稿。</div>
+      <div className="notice manual-draft-notice"><b>自动草稿与本机队列已开启。</b> 填写过程会保存在当前浏览器；核验完成后先存入本机待上传队列，可以连续整理多道菜，最后再统一上传 Supabase。</div>
 
       <div className="panel">
         <div className="section-head"><div><p className="eyebrow">SOURCE</p><h2>来源与辅助资料</h2></div><span className={`badge ${draft.subtitle ? "" : "warn"}`}>{draft.subtitle ? `${draft.subtitle.tracks.reduce((sum, track) => sum + track.cues.length, 0)} 段字幕` : isBilibili?"字幕可选":"分享文本已保留"}</span></div>
@@ -189,12 +188,12 @@ export function ManualRecipeEntry({initialSource}:{initialSource?:SourceVideo}={
         <div className="field"><label>当前核验状态</label><select value={draft.review.verificationStatus} onChange={(event) => setDraft((current) => ({ ...current, review: { ...current.review, verificationStatus: event.target.value as ManualRecipeDraft["review"]["verificationStatus"] } }))}><option value="unverified">未核验</option><option value="ai_suggested">AI 建议</option><option value="source_verified">已对照来源</option><option value="user_verified">已人工确认</option></select></div>
         <div className="field" style={{ marginTop: 14 }}><label>核验备注</label><textarea value={draft.review.note} onChange={(event) => setDraft((current) => ({ ...current, review: { ...current.review, note: event.target.value } }))} placeholder="例如：克数来自画面/原网页，仍有字段待核验"/></div>
         <div className="field" style={{ marginTop: 14 }}><label>版本说明</label><textarea value={draft.recipe.versionNote} onChange={(event) => setRecipe("versionNote", event.target.value)}/></div>
-        <div className="notice" style={{ marginTop: 16 }}>保存会在一次数据库事务中查重并写入来源、菜谱正文和来源版本。平台分享文本与 AI 字幕只作为核验依据，不自动标记为人工确认。</div>
-        <div className="notice" style={{marginTop:12}}><b>本机草稿：</b>输入后约 0.25 秒自动保存。除非你点击“清空本机草稿”或正式保存成功，否则不会因为收起录入区或离开页面而清空。</div>
-        {cloudStatus !== "connected" && <div className="notice" style={{ marginTop: 12, background: "#fbe5de", color: "#923c29" }}>当前不能写入云端。请先去<Link href="/login" style={{ textDecoration: "underline" }}>登录页面</Link>完成 CookingApp 登录。</div>}
+        <div className="notice" style={{ marginTop: 16 }}>“存入本机待上传”只建立账号隔离的设备队列，不立即写数据库。之后点击导入中心的“一键上传全部”，每道菜仍会在一次数据库事务中查重并写入来源、菜谱正文和来源版本。</div>
+        <div className="notice" style={{marginTop:12}}><b>保存边界：</b>本机队列不会自动同步到其他设备，也不会进入云端备份；上传成功的项目才会从队列移除，失败项目会保留供重试。</div>
+        {!currentUserId && <div className="notice" style={{ marginTop: 12, background: "#fbe5de", color: "#923c29" }}>当前登录账号尚未恢复，暂时不能写入账号隔离的本机队列。</div>}
         {error && <div className="notice" role="alert" style={{ marginTop: 12, background: "#fbe5de", color: "#923c29" }}>{error}</div>}
         {message && <div className="notice" role="status" style={{ marginTop: 12, background: "var(--leaf-soft)", color: "var(--leaf)" }}>{message}</div>}
-        <button className="btn btn-primary" type="submit" disabled={saving || cloudStatus !== "connected"} style={{ width: "100%", marginTop: 18 }}>{saving ? "正在写入 Supabase…" : "保存来源与候选菜谱"}</button>
+        <button className="btn btn-primary" type="submit" disabled={saving || !currentUserId} style={{ width: "100%", marginTop: 18 }}>{saving ? "正在保存本机队列…" : "存入本机待上传"}</button>
         <button className="btn btn-secondary" type="button" onClick={clearLocalDraft} style={{width:"100%",marginTop:10}}>清空本机草稿</button>
       </div>
     </aside>
