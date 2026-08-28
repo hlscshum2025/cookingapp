@@ -3,6 +3,8 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
+import numpy as np
+
 from cooking_vision.contracts import BoundingBox, OcrTextLine
 
 
@@ -27,6 +29,22 @@ def _box(raw_box:Any,raw_polygon:Any)->BoundingBox:
     return BoundingBox(min(xs),min(ys),max(xs),max(ys))
 
 
+def _ensure_three_channel_image(image:Any)->np.ndarray:
+    """PaddleX text detection expects a contiguous H x W x 3 image array."""
+    array=np.asarray(image)
+    if array.ndim==2:
+        array=np.repeat(array[...,np.newaxis],3,axis=2)
+    elif array.ndim==3 and array.shape[2]==1:
+        array=np.repeat(array,3,axis=2)
+    elif array.ndim==3 and array.shape[2]==4:
+        array=array[:,:,:3]
+    elif array.ndim!=3 or array.shape[2]!=3:
+        raise ValueError(
+            f"PaddleOCR expects an H x W x 3 image; received shape {array.shape}"
+        )
+    return np.ascontiguousarray(array)
+
+
 @lru_cache(maxsize=4)
 def _load_pipeline(language:str,device:str)->tuple[Any,str]:
     try:
@@ -47,7 +65,8 @@ def _load_pipeline(language:str,device:str)->tuple[Any,str]:
 
 def run_paddle_ocr(image:Any,language:str="german",device:str="cpu",min_confidence:float=.35)->tuple[list[OcrTextLine],list[dict[str,Any]],str]:
     pipeline,version=_load_pipeline(language,device)
-    outputs=list(pipeline.predict(image))
+    prepared_image=_ensure_three_channel_image(image)
+    outputs=list(pipeline.predict(prepared_image))
     lines:list[OcrTextLine]=[]
     raw_outputs:list[dict[str,Any]]=[]
     for output in outputs:
