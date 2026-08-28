@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from cooking_vision.cli import main
+from cooking_vision.diagnostics import probe_import
 from cooking_vision.receipt.batch import find_receipt_images
 
 
@@ -33,3 +34,13 @@ def test_empty_batch_reports_paths_and_writes_logs(tmp_path, capsys):
     assert "FileNotFoundError" in (output_dir / "logs" / "errors.log").read_text(
         encoding="utf-8"
     )
+
+
+def test_runtime_import_probe_isolates_import_errors():
+    success = probe_import("json")
+    failure = probe_import("cooking_vision_module_that_does_not_exist")
+
+    assert success.ok
+    assert not failure.ok
+    assert failure.return_code != 0
+    assert "ModuleNotFoundError" in failure.details
