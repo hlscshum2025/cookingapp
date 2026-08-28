@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import sys
 from pathlib import Path
 from typing import Sequence
 
+from cooking_vision.diagnostics import probe_import
 from cooking_vision.json_io import write_json
 
 
@@ -61,9 +63,26 @@ def _package_version(name:str)->str:
 def main(argv:Sequence[str]|None=None)->int:
     args=build_parser().parse_args(argv)
     if args.command=="environment":
+        print(f"python executable: {sys.executable}")
+        print(f"python version: {sys.version.split()[0]}")
+        print(f"cookingapp-vision: {_package_version('cookingapp-vision')}")
+        print(f"cooking_vision code: {Path(__file__).resolve()}")
+        print("installed distributions:")
         for package in ["opencv-python","opencv-contrib-python","paddlepaddle","paddleocr","ultralytics","torch"]:
             print(f"{package}: {_package_version(package)}")
-        return 0
+        print("runtime import checks:")
+        failed=False
+        for module in ["cv2","paddle","paddleocr"]:
+            probe=probe_import(module)
+            if probe.ok:
+                print(f"{module}: OK ({probe.version})")
+                continue
+            failed=True
+            print(f"{module}: FAILED (exit_code={probe.return_code})")
+            print(probe.details)
+        if _package_version("ultralytics")=="not installed" and _package_version("torch")=="not installed":
+            print("note: ultralytics and torch are intentionally absent from the OCR-only environment.")
+        return 1 if failed else 0
     if args.command=="preprocess":
         from cooking_vision.receipt.preprocess import preprocess_receipt,save_preprocess_stages
         result=preprocess_receipt(args.image,max_side=args.max_side)
