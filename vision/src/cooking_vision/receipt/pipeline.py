@@ -23,7 +23,7 @@ def build_receipt_draft(
     if stages_dir is not None:
         save_preprocess_stages(processed,stages_dir)
     detected_lines,raw_outputs,version=run_paddle_ocr(
-        processed.grayscale,
+        processed.normalized,
         language=language,
         device=device,
         min_confidence=min_confidence,
