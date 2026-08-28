@@ -8,6 +8,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, Callable
 
+from cooking_vision.diagnostics import probe_import
 from cooking_vision.json_io import write_json
 
 
@@ -171,11 +172,29 @@ def run_receipt_batch(
         )
         return _empty_result(source, destination, reporter, error)
 
+    reporter.emit("开始检查 OCR 运行库。")
+    for module, label in (
+        ("cv2", "OpenCV"),
+        ("paddle", "PaddlePaddle"),
+        ("paddleocr", "PaddleOCR"),
+    ):
+        reporter.emit(f"运行库自检：正在导入 {label} ({module}) ...")
+        probe = probe_import(module)
+        if not probe.ok:
+            error = RuntimeError(
+                f"{label} import failed in a child process; "
+                f"exit_code={probe.return_code}; details={probe.details}"
+            )
+            return _empty_result(source, destination, reporter, error)
+        reporter.emit(f"运行库自检通过：{label} {probe.version}")
+
     reporter.emit("提示：处理第一张图片时会初始化或下载 PaddleOCR 模型，可能需要等待。")
+    reporter.emit("正在加载 CookingApp OCR 管线 ...")
     try:
         from cooking_vision.receipt.pipeline import build_receipt_draft
-    except Exception as error:
+    except (Exception, SystemExit) as error:
         return _empty_result(source, destination, reporter, error)
+    reporter.emit("CookingApp OCR 管线加载完成。")
 
     rows: list[dict[str, Any]] = []
 
