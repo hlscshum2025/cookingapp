@@ -87,7 +87,7 @@ def main(argv:Sequence[str]|None=None)->int:
         return 0
     if args.command=="receipt-batch":
         from cooking_vision.receipt.batch import run_receipt_batch
-        rows,summary=run_receipt_batch(
+        result=run_receipt_batch(
             args.input,
             args.output,
             language=args.language,
@@ -97,10 +97,9 @@ def main(argv:Sequence[str]|None=None)->int:
             save_stages=args.save_stages,
             recursive=not args.no_recursive,
         )
-        succeeded=sum(row["status"]=="ok" for row in rows)
-        print(f"Receipts: {len(rows)}, succeeded: {succeeded}, failed: {len(rows)-succeeded}")
-        print(summary)
-        return 0
+        if result.fatal_error is not None:
+            return 2
+        return 1 if result.failed else 0
     if args.command=="detect":
         from cooking_vision.detection.yolo_world import detect_food_candidates
         candidates=detect_food_candidates(
