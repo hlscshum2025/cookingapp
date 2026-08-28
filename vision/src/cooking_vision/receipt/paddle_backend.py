@@ -53,12 +53,21 @@ def _load_pipeline(language:str,device:str)->tuple[Any,str]:
     except ImportError as error:
         raise RuntimeError("PaddleOCR environment is missing. Install requirements/ocr-cpu.txt first.") from error
 
+    options:dict[str,Any]={
+        "lang":language,
+        "use_doc_orientation_classify":False,
+        "use_doc_unwarping":False,
+        "use_textline_orientation":False,
+        "device":device,
+    }
+    # PaddlePaddle 3.3.x can fail in CPU inference while PaddleX uses its
+    # default oneDNN/MKLDNN backend.  Selecting the plain Paddle backend avoids
+    # ConvertPirAttribute2RuntimeAttribute crashes without changing the model.
+    if device.lower().split(":",maxsplit=1)[0]=="cpu":
+        options["enable_mkldnn"]=False
+
     pipeline=PaddleOCR(
-        lang=language,
-        use_doc_orientation_classify=False,
-        use_doc_unwarping=False,
-        use_textline_orientation=False,
-        device=device,
+        **options,
     )
     return pipeline,getattr(paddleocr,"__version__","unknown")
 

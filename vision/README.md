@@ -147,6 +147,7 @@ python -m cooking_vision.cli receipt-batch data\raw\receipts --output outputs\re
 | 找到图片 `0` 张 | 输入目录错误、目录为空或扩展名不支持 | 终端显示的“输入目录” |
 | `paddleocr` / `paddlepaddle: not installed` | OCR 运行库没有装进当前解释器 | `environment` 输出 |
 | 第一张图长时间停留 | 通常在加载或首次下载模型 | 网络和 PaddleOCR 自身日志 |
+| `ConvertPirAttribute2RuntimeAttribute` / `onednn_instruction.cc` | PaddlePaddle 3.3.x 的 CPU oneDNN/MKLDNN 推理回归 | 拉取最新分支；代码会在 CPU 上使用 `enable_mkldnn=False` 绕开该后端 |
 | 状态成功，但 OCR 文本行为 `0` | 模型运行了，但没有高于阈值的文字结果 | 对应 JSON 的 `warnings` 和 `raw_result` |
 | 有 OCR 文本行，但商品候选为 `0` | 识别到了字，当前规则没有找到商品名＋价格行 | 对应 JSON 的 `lines` 与 `warnings` |
 | 状态失败 | 代码、依赖、图片读取或模型调用抛出异常 | `logs/errors.log` |
