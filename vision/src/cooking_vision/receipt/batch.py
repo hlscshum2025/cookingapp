@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import traceback
+from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -87,6 +88,14 @@ def find_receipt_images(input_dir: str | Path, recursive: bool = True) -> list[P
         for path in candidates
         if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
     )
+
+
+def _artifact_relative_path(relative: Path, duplicate_stem: bool) -> Path:
+    """Return a stable extension-free output path for one input image."""
+    if not duplicate_stem:
+        return relative.with_suffix("")
+    suffix = relative.suffix.lower().lstrip(".") or "image"
+    return relative.parent / f"{relative.stem}__{suffix}"
 
 
 def _write_summary(rows: list[dict[str, Any]], path: Path) -> Path:
@@ -197,13 +206,19 @@ def run_receipt_batch(
     reporter.emit("CookingApp OCR 管线加载完成。")
 
     rows: list[dict[str, Any]] = []
+    stem_counts=Counter(
+        (path.relative_to(source).parent.as_posix().casefold(),path.stem.casefold())
+        for path in images
+    )
 
     for index, image_path in enumerate(images, start=1):
         relative = image_path.relative_to(source)
         relative_text = relative.as_posix()
-        json_path = destination / "json" / relative.with_suffix(".json")
+        stem_key=(relative.parent.as_posix().casefold(),relative.stem.casefold())
+        artifact_relative=_artifact_relative_path(relative,stem_counts[stem_key]>1)
+        json_path = destination / "json" / artifact_relative.with_suffix(".json")
         stages_dir = (
-            destination / "stages" / relative.parent / relative.stem
+            destination / "stages" / artifact_relative
             if save_stages
             else None
         )
