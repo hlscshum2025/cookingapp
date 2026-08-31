@@ -38,6 +38,17 @@ def build_parser()->argparse.ArgumentParser:
     receipt_batch.add_argument("--save-stages",action="store_true")
     receipt_batch.add_argument("--no-recursive",action="store_true")
 
+    note=commands.add_parser("xiaohongshu",help="Build one recipe draft from ordered Xiaohongshu screenshots")
+    note.add_argument("images",type=Path,nargs="+")
+    note.add_argument("--output",type=Path,default=Path("outputs/xiaohongshu-recipe.json"))
+    note.add_argument("--stages",type=Path)
+    note.add_argument("--language",default="ch")
+    note.add_argument("--device",default="cpu")
+    note.add_argument("--min-confidence",type=float,default=.35)
+    note.add_argument("--max-side",type=int,default=2200)
+    note.add_argument("--crop-mode",choices=["auto","full","right"],default="auto")
+    note.add_argument("--right-ratio",type=float,default=.42)
+
     detect=commands.add_parser("detect",help="Detect food candidates with YOLO-World")
     detect.add_argument("image",type=Path)
     detect.add_argument("--scene",choices=["fridge","tabletop","bagged","unknown"],default="unknown")
@@ -119,6 +130,25 @@ def main(argv:Sequence[str]|None=None)->int:
         if result.fatal_error is not None:
             return 2
         return 1 if result.failed else 0
+    if args.command=="xiaohongshu":
+        from cooking_vision.note.pipeline import build_xiaohongshu_recipe_draft
+        draft=build_xiaohongshu_recipe_draft(
+            args.images,
+            language=args.language,
+            device=args.device,
+            min_confidence=args.min_confidence,
+            max_side=args.max_side,
+            crop_mode=args.crop_mode,
+            right_ratio=args.right_ratio,
+            stages_dir=args.stages,
+        )
+        path=write_json(draft.to_dict(),args.output)
+        print(
+            f"Screenshots: {len(draft.pages)}, "
+            f"ingredients: {len(draft.ingredients)}, steps: {len(draft.steps)}"
+        )
+        print(path)
+        return 0
     if args.command=="detect":
         from cooking_vision.detection.yolo_world import detect_food_candidates
         candidates=detect_food_candidates(

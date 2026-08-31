@@ -3,8 +3,9 @@
 这个目录用于本地学习和实验，不会直接连接或写入 Supabase。当前已经预留三条路线：
 
 1. 德国小票：OpenCV 预处理 → PaddleOCR → 商品行候选 → `ReceiptOcrDraft` JSON；
-2. 冰箱、桌面和袋装食材：YOLO-World 开放词汇检测 → `VisionCandidate` JSON；
-3. 后续融合：视觉、OCR、条码、重量证据合并，但冲突时必须保留 `unknown` 并等待人工确认。
+2. 小红书菜谱截图：截图文字区裁剪 → 中文 OCR → 多图去重合并 → 菜谱候选 JSON；
+3. 冰箱、桌面和袋装食材：YOLO-World 开放词汇检测 → `VisionCandidate` JSON；
+4. 后续融合：视觉、OCR、条码、重量证据合并，但冲突时必须保留 `unknown` 并等待人工确认。
 
 小票 OCR、批处理与诊断功能已经合入 `main`；本地运行前请先拉取最新 `main`。
 
@@ -69,6 +70,12 @@ cooking-vision receipt-batch data\raw\receipts --output outputs\receipt-batch
 # 调试图像预处理时额外保存每张小票的中间图
 cooking-vision receipt-batch data\raw\receipts --output outputs\receipt-batch --save-stages
 
+# 一张小红书菜谱截图
+cooking-vision xiaohongshu data\raw\xiaohongshu\recipe-01.png --output outputs\xiaohongshu-recipe.json
+
+# 多张截图按给出的先后顺序组成同一个菜谱
+cooking-vision xiaohongshu data\raw\xiaohongshu\recipe-01.png data\raw\xiaohongshu\recipe-02.png data\raw\xiaohongshu\recipe-03.png --output outputs\xiaohongshu-recipe.json --stages outputs\xiaohongshu-stages
+
 # 冰箱照片
 cooking-vision detect data\raw\fridge\fridge.jpg --scene fridge --output outputs\fridge.json
 
@@ -79,7 +86,30 @@ cooking-vision detect data\raw\tabletop\food.jpg --scene tabletop --output outpu
 cooking-vision detect data\raw\bagged\bag.jpg --scene bagged --output outputs\bagged.json
 ```
 
-也可以在 PyCharm 建立 Python Run Configuration：Module name 填 `cooking_vision.cli`，Parameters 填上面命令中 `preprocess`、`receipt` 或 `detect` 后面的部分。
+也可以在 PyCharm 建立 Python Run Configuration：Module name 填 `cooking_vision.cli`，Parameters 填上面命令中 `preprocess`、`receipt`、`xiaohongshu` 或 `detect` 后面的部分。
+
+## 小红书菜谱截图 OCR demo
+
+```text
+一张或多张截图
+→ 自动选择整图或右侧文字面板
+→ PaddleOCR 中文文字检测与识别
+→ 按截图顺序合并
+→ 仅在相邻截图边界消除重复文字
+→ 查找食材、材料、用料、做法和步骤等标题
+→ 输出等待人工确认的菜谱草稿
+```
+
+多张图片的位置参数属于同一个菜谱，顺序必须与正文从前到后相同。程序不会根据文件名自动猜顺序。
+
+默认 `--crop-mode auto`：
+
+- 桌面横图右侧存在明显深色文字面板时，只把右侧送进 OCR；
+- 普通手机竖屏截图使用整图；
+- 浅色桌面布局没有自动分栏时，可手动使用 `--crop-mode right --right-ratio 0.42`；
+- 若自动裁剪错误，可使用 `--crop-mode full` 强制识别整图。
+
+输出中的 `title`、`ingredients` 和 `steps` 都是候选值，默认保持 `unverified`。截图没有包含标题、用量或完整步骤时，对应字段保持空值并产生 warning，不会自行补全。原始截图、调试图和 JSON 都只保存在本地，本命令不会写入 Supabase。
 
 ## 批处理的输入、输出与日志
 
