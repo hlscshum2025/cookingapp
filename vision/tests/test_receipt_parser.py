@@ -43,6 +43,28 @@ def test_extracts_store_date_time_and_total_metadata():
     assert metadata.total_amount==1234.56
 
 
+def test_tax_and_net_subtotals_do_not_replace_payable_total():
+    metadata=extract_metadata([
+        line("ZU ZAHLEN EUR 18,42"),
+        line("MWST SUMME 2,94"),
+        line("SUMME NETTO 15,48"),
+    ])
+    assert metadata.total_amount==18.42
+
+
+def test_net_subtotal_is_not_mistaken_for_netto_store():
+    metadata=extract_metadata([
+        line("UNABHÄNGIGER MARKT"),
+        line("SUMME NETTO 15,48"),
+    ])
+    assert metadata.store_name is None
+
+
+def test_netto_store_header_is_still_recognized():
+    metadata=extract_metadata([line("Netto Marken-Discount")])
+    assert metadata.store_name=="Netto"
+
+
 def test_barilla_is_not_mistaken_for_cash_payment():
     items=extract_item_candidates([line("BARILLA SPAGHETTI 1,79"),line("BAR 20,00")])
     assert [item.product_name for item in items]==["BARILLA SPAGHETTI"]

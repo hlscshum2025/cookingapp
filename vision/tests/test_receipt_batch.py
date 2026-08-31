@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from cooking_vision.cli import main
 from cooking_vision.diagnostics import probe_import
-from cooking_vision.receipt.batch import find_receipt_images
+from pathlib import Path
+
+from cooking_vision.receipt.batch import _artifact_relative_path,find_receipt_images
 
 
 def test_find_receipt_images_filters_and_sorts(tmp_path):
@@ -13,6 +15,15 @@ def test_find_receipt_images_filters_and_sorts(tmp_path):
     found = find_receipt_images(tmp_path)
 
     assert [path.name for path in found] == ["a.jpg", "b.PNG"]
+
+
+def test_same_stem_with_different_extensions_gets_unique_artifacts():
+    jpg=_artifact_relative_path(Path("receipt.jpg"),duplicate_stem=True)
+    png=_artifact_relative_path(Path("receipt.png"),duplicate_stem=True)
+
+    assert jpg==Path("receipt__jpg")
+    assert png==Path("receipt__png")
+    assert jpg!=png
 
 
 def test_empty_batch_reports_paths_and_writes_logs(tmp_path, capsys):

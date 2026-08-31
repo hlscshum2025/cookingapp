@@ -27,7 +27,19 @@ NON_ITEM_PATTERN=re.compile(
     r"RÜCKGELD|MWST|UST|NETTO|BRUTTO)\b",
     re.IGNORECASE,
 )
-TOTAL_PATTERN=re.compile(r"\b(?:SUMME|GESAMT|TOTAL|ENDSUMME|ZU\s+ZAHLEN)\b",re.IGNORECASE)
+TOTAL_PATTERNS=(
+    (3,re.compile(r"\b(?:ZU\s+ZAHLEN|ENDSUMME|GESAMTBETRAG|ZAHLBETRAG)\b",re.IGNORECASE)),
+    (2,re.compile(r"\b(?:GESAMT|TOTAL)\b",re.IGNORECASE)),
+    (1,re.compile(r"\bSUMME\b",re.IGNORECASE)),
+)
+TAX_OR_NET_SUBTOTAL_PATTERN=re.compile(
+    r"\b(?:MWST|UST|NETTO|STEUER|STEUERSATZ)\b",
+    re.IGNORECASE,
+)
+NETTO_STORE_PATTERN=re.compile(
+    r"^NETTO(?:\s+(?:MARKEN[- ]DISCOUNT|MARKT|FILIALE)\b.*)?$",
+    re.IGNORECASE,
+)
 STORE_ALIASES=(
     ("KAUFLAND","Kaufland"),
     ("ALDI SÜD","ALDI Süd"),
@@ -106,11 +118,14 @@ def extract_metadata(lines:list[OcrTextLine])->ReceiptMetadataCandidate:
     purchase_date:str|None=None
     purchase_time:str|None=None
     total_amount:float|None=None
+    total_priority=-1
     for index,line in enumerate(lines):
         text=" ".join(line.text.strip().split())
         upper=text.upper()
         if store_name is None and index<15:
             for alias,canonical in STORE_ALIASES:
+                if alias=="NETTO" and not NETTO_STORE_PATTERN.fullmatch(upper):
+                    continue
                 if alias in upper:
                     store_name=canonical
                     break
@@ -122,12 +137,16 @@ def extract_metadata(lines:list[OcrTextLine])->ReceiptMetadataCandidate:
             match=TIME_PATTERN.search(text)
             if match:
                 purchase_time=f"{int(match.group(1)):02d}:{match.group(2)}"
-        if TOTAL_PATTERN.search(text):
+        if TAX_OR_NET_SUBTOTAL_PATTERN.search(text):
+            continue
+        priority=next((rank for rank,pattern in TOTAL_PATTERNS if pattern.search(text)),None)
+        if priority is not None and priority>=total_priority:
             match=PRICE_AT_END.search(text)
             if match:
                 parsed=parse_decimal(match.group(1))
                 if parsed>=0:
                     total_amount=parsed
+                    total_priority=priority
     return ReceiptMetadataCandidate(
         store_name=store_name,
         purchase_date=purchase_date,

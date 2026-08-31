@@ -20,14 +20,24 @@ export type OcrTextLine={
 export type ReceiptItemCandidate={
   raw_text:string;
   confidence:number;
-  bbox?:BoundingBox|null;
-  product_name?:string|null;
-  quantity?:number|null;
-  quantity_unit?:string|null;
-  unit_price?:number|null;
-  line_total?:number|null;
+  bbox:BoundingBox|null;
+  product_name:string|null;
+  quantity:number|null;
+  quantity_unit:string|null;
+  package_amount:number|null;
+  package_unit:string|null;
+  unit_price:number|null;
+  line_total:number|null;
   currency:string;
   verification_status:VerificationStatus;
+};
+
+export type ReceiptMetadataCandidate={
+  store_name:string|null;
+  purchase_date:string|null;
+  purchase_time:string|null;
+  currency:string;
+  total_amount:number|null;
 };
 
 /** Exact JSON boundary emitted by vision/src/cooking_vision/contracts.py. */
@@ -40,8 +50,10 @@ export type ReceiptOcrDraftV1={
   created_at:string;
   lines:OcrTextLine[];
   items:ReceiptItemCandidate[];
+  metadata:ReceiptMetadataCandidate;
   warnings:string[];
   raw_result:Record<string,unknown>;
+  latency_ms:number|null;
   confirmed:boolean;
 };
 
@@ -78,16 +90,63 @@ export function isBoundingBox(value:unknown):value is BoundingBox{
     &&x_max>=x_min&&y_max>=y_min;
 }
 
+function isNullableString(value:unknown):value is string|null{
+  return value===null||typeof value==="string";
+}
+
+function isNullableNumber(value:unknown):value is number|null{
+  return value===null||isFiniteNumber(value);
+}
+
+function isVerificationStatus(value:unknown):value is VerificationStatus{
+  return ["unverified","user_verified","rejected"].includes(String(value));
+}
+
+function isReceiptMetadataCandidate(value:unknown):value is ReceiptMetadataCandidate{
+  if(!isRecord(value))return false;
+  return isNullableString(value.store_name)
+    &&isNullableString(value.purchase_date)
+    &&isNullableString(value.purchase_time)
+    &&typeof value.currency==="string"
+    &&isNullableNumber(value.total_amount);
+}
+
+function isOcrTextLine(value:unknown):value is OcrTextLine{
+  return isRecord(value)
+    &&typeof value.text==="string"
+    &&isFiniteNumber(value.confidence)
+    &&isBoundingBox(value.bbox);
+}
+
+function isReceiptItemCandidate(value:unknown):value is ReceiptItemCandidate{
+  if(!isRecord(value))return false;
+  return typeof value.raw_text==="string"
+    &&isFiniteNumber(value.confidence)
+    &&(value.bbox===null||isBoundingBox(value.bbox))
+    &&isNullableString(value.product_name)
+    &&isNullableNumber(value.quantity)
+    &&isNullableString(value.quantity_unit)
+    &&isNullableNumber(value.package_amount)
+    &&isNullableString(value.package_unit)
+    &&isNullableNumber(value.unit_price)
+    &&isNullableNumber(value.line_total)
+    &&typeof value.currency==="string"
+    &&isVerificationStatus(value.verification_status);
+}
+
 export function isReceiptOcrDraftV1(value:unknown):value is ReceiptOcrDraftV1{
   if(!isRecord(value)||value.schema_version!==RECEIPT_OCR_SCHEMA_VERSION)return false;
   return typeof value.source_image==="string"
     &&typeof value.provider==="string"
     &&typeof value.model_version==="string"
     &&typeof value.preprocess_version==="string"
-    &&Array.isArray(value.lines)
-    &&Array.isArray(value.items)
-    &&Array.isArray(value.warnings)
+    &&typeof value.created_at==="string"
+    &&Array.isArray(value.lines)&&value.lines.every(isOcrTextLine)
+    &&Array.isArray(value.items)&&value.items.every(isReceiptItemCandidate)
+    &&isReceiptMetadataCandidate(value.metadata)
+    &&Array.isArray(value.warnings)&&value.warnings.every(item=>typeof item==="string")
     &&isRecord(value.raw_result)
+    &&(value.latency_ms===null||(isFiniteNumber(value.latency_ms)&&Number.isInteger(value.latency_ms)&&value.latency_ms>=0))
     &&typeof value.confirmed==="boolean";
 }
 
@@ -106,4 +165,3 @@ export function isVisionCandidateV1(value:unknown):value is VisionCandidateV1{
     &&Number(value.quantity_max)>=Number(value.quantity_min)
     &&Array.isArray(value.evidence);
 }
-
