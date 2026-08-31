@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import sys
 from pathlib import Path
 from typing import Sequence
 
+from cooking_vision.diagnostics import probe_import
 from cooking_vision.json_io import write_json
 
 
@@ -25,6 +27,16 @@ def build_parser()->argparse.ArgumentParser:
     receipt.add_argument("--device",default="cpu")
     receipt.add_argument("--min-confidence",type=float,default=.35)
     receipt.add_argument("--max-side",type=int,default=2200)
+
+    receipt_batch=commands.add_parser("receipt-batch",help="Run receipt OCR for a local image directory")
+    receipt_batch.add_argument("input",type=Path)
+    receipt_batch.add_argument("--output",type=Path,default=Path("outputs/receipt-batch"))
+    receipt_batch.add_argument("--language",default="german")
+    receipt_batch.add_argument("--device",default="cpu")
+    receipt_batch.add_argument("--min-confidence",type=float,default=.35)
+    receipt_batch.add_argument("--max-side",type=int,default=2200)
+    receipt_batch.add_argument("--save-stages",action="store_true")
+    receipt_batch.add_argument("--no-recursive",action="store_true")
 
     detect=commands.add_parser("detect",help="Detect food candidates with YOLO-World")
     detect.add_argument("image",type=Path)
@@ -51,9 +63,26 @@ def _package_version(name:str)->str:
 def main(argv:Sequence[str]|None=None)->int:
     args=build_parser().parse_args(argv)
     if args.command=="environment":
+        print(f"python executable: {sys.executable}")
+        print(f"python version: {sys.version.split()[0]}")
+        print(f"cookingapp-vision: {_package_version('cookingapp-vision')}")
+        print(f"cooking_vision code: {Path(__file__).resolve()}")
+        print("installed distributions:")
         for package in ["opencv-python","opencv-contrib-python","paddlepaddle","paddleocr","ultralytics","torch"]:
             print(f"{package}: {_package_version(package)}")
-        return 0
+        print("runtime import checks:")
+        failed=False
+        for module in ["cv2","paddle","paddleocr"]:
+            probe=probe_import(module)
+            if probe.ok:
+                print(f"{module}: OK ({probe.version})")
+                continue
+            failed=True
+            print(f"{module}: FAILED (exit_code={probe.return_code})")
+            print(probe.details)
+        if _package_version("ultralytics")=="not installed" and _package_version("torch")=="not installed":
+            print("note: ultralytics and torch are intentionally absent from the OCR-only environment.")
+        return 1 if failed else 0
     if args.command=="preprocess":
         from cooking_vision.receipt.preprocess import preprocess_receipt,save_preprocess_stages
         result=preprocess_receipt(args.image,max_side=args.max_side)
@@ -75,6 +104,21 @@ def main(argv:Sequence[str]|None=None)->int:
         print(f"OCR lines: {len(draft.lines)}, item candidates: {len(draft.items)}")
         print(path)
         return 0
+    if args.command=="receipt-batch":
+        from cooking_vision.receipt.batch import run_receipt_batch
+        result=run_receipt_batch(
+            args.input,
+            args.output,
+            language=args.language,
+            device=args.device,
+            min_confidence=args.min_confidence,
+            max_side=args.max_side,
+            save_stages=args.save_stages,
+            recursive=not args.no_recursive,
+        )
+        if result.fatal_error is not None:
+            return 2
+        return 1 if result.failed else 0
     if args.command=="detect":
         from cooking_vision.detection.yolo_world import detect_food_candidates
         candidates=detect_food_candidates(

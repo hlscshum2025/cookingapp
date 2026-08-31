@@ -37,10 +37,21 @@ class ReceiptItemCandidate:
     product_name:str|None=None
     quantity:float|None=None
     quantity_unit:str|None=None
+    package_amount:float|None=None
+    package_unit:str|None=None
     unit_price:float|None=None
     line_total:float|None=None
     currency:str="EUR"
     verification_status:Literal["unverified","user_verified","rejected"]="unverified"
+
+
+@dataclass(frozen=True)
+class ReceiptMetadataCandidate:
+    store_name:str|None=None
+    purchase_date:str|None=None
+    purchase_time:str|None=None
+    currency:str="EUR"
+    total_amount:float|None=None
 
 
 @dataclass
@@ -53,8 +64,10 @@ class ReceiptOcrDraft:
     created_at:str=field(default_factory=utc_now_iso)
     lines:list[OcrTextLine]=field(default_factory=list)
     items:list[ReceiptItemCandidate]=field(default_factory=list)
+    metadata:ReceiptMetadataCandidate=field(default_factory=ReceiptMetadataCandidate)
     warnings:list[str]=field(default_factory=list)
     raw_result:dict[str,Any]=field(default_factory=dict)
+    latency_ms:int|None=None
     confirmed:bool=False
 
     def to_dict(self)->dict[str,Any]:

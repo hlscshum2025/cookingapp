@@ -1,5 +1,7 @@
 # Windows/PyCharm CPU baseline, resolved together on 2026-08-26.
 # PaddleOCR installs its compatible opencv-contrib-python build.
+# The application disables MKLDNN on CPU because PaddlePaddle 3.3.x has a
+# ConvertPirAttribute2RuntimeAttribute regression in that inference backend.
 numpy==2.2.6
 paddlepaddle==3.3.1
 paddleocr==3.7.0
