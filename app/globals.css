@@ -65,6 +65,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 @media (display-mode: standalone) {
   .pwa-drag-strip { -webkit-app-region:drag; position:fixed; z-index:100; top:0; left:0; right:0; height:max(9px,env(titlebar-area-height,9px)); display:block; background:linear-gradient(90deg,#2f684f,#8aaa75 48%,#d9a83e); box-shadow:0 1px 0 rgba(255,255,255,.45) inset; }
+  .app-shell { padding-top:env(titlebar-area-height,9px); }
+  .topbar-actions { top:max(22px,calc(env(titlebar-area-height,9px) + 12px)); }
   .topbar a,.topbar button,.topbar-actions,.account-menu,.recipe-cart-float { -webkit-app-region:no-drag; }
 }
 .account-menu-head { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:10px; padding:3px 3px 13px; }
