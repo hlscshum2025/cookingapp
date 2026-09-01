@@ -218,3 +218,19 @@ test("手机端第二轮适配覆盖安全区、账号语言和长表单核验�
   assert.equal(pkg.scripts.dev,"vinext dev");
   assert.equal(pkg.scripts["dev:mobile"],"vinext dev --hostname 0.0.0.0");
 });
+
+test("全局顶栏、PWA 拖动区与聚餐点赞复用公开菜谱状态",async()=>{
+  const shell=await readFile(new URL("../components/AppShell.tsx",import.meta.url),"utf8");
+  const workspace=await readFile(new URL("../components/MealFinanceWorkspace.tsx",import.meta.url),"utf8");
+  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+  const manifest=JSON.parse(await readFile(new URL("../public/manifest.webmanifest",import.meta.url),"utf8"));
+  assert.match(shell,/pwa-drag-strip/);
+  assert.match(shell,/topbar-message/);
+  assert.match(shell,/好好吃饭，也是认真生活/);
+  assert.match(workspace,/loadPublicRecipes/);
+  assert.match(workspace,/togglePublicRecipeLike/);
+  assert.match(workspace,/aria-pressed=\{item\.likedByMe\}/);
+  assert.match(css,/\.topbar-actions \{ position:fixed/);
+  assert.match(css,/-webkit-app-region:drag/);
+  assert.ok(manifest.display_override.includes("window-controls-overlay"));
+});
