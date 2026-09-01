@@ -1,5 +1,30 @@
 # CookingApp 视觉识别实验框架
 
+## OCR worker（第一版）
+
+网页不会为每张图片重新启动一次 Python。`uvicorn` 启动一个长期运行的
+worker，PaddleOCR 管线由现有的 `lru_cache` 在进程内复用；第一次任务仍有
+模型冷启动耗时，之后同语言、同设备的任务不再重复加载模型。
+
+```bash
+python -m pip install -r requirements/service-cpu.txt
+export VISION_DEV_ALLOW_UNAUTHENTICATED=1
+export VISION_ALLOWED_ORIGINS=http://localhost:3000
+uvicorn cooking_vision.service:app --host 127.0.0.1 --port 8000
+```
+
+正式环境不要设置 `VISION_DEV_ALLOW_UNAUTHENTICATED=1`，而应设置
+`SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY` 和严格的
+`VISION_ALLOWED_ORIGINS`。接口接受1–12张有序图片，立即返回任务ID，网页轮询：
+
+- `POST /v1/ocr/jobs?kind=receipt`
+- `POST /v1/ocr/jobs?kind=xiaohongshu`
+- `GET /v1/ocr/jobs/{job_id}`
+
+任务状态依次为 `queued → running → review_required`，失败则为 `failed`。
+当前任务表是单进程内存实现，适合本地第一版联调；图片处理后立即删除，结果
+也不会自动写入粮仓、记账或正式菜谱。部署多副本前必须换成 Supabase 持久任务表。
+
 这个目录用于本地学习和实验，不会直接连接或写入 Supabase。当前已经预留三条路线：
 
 1. 德国小票：OpenCV 预处理 → PaddleOCR → 商品行候选 → `ReceiptOcrDraft` JSON；

@@ -1,5 +1,7 @@
 export const RECEIPT_OCR_SCHEMA_VERSION="receipt-ocr-draft-v1" as const;
 export const VISION_CANDIDATE_SCHEMA_VERSION="vision-candidate-v1" as const;
+export const RECEIPT_OCR_BATCH_SCHEMA_VERSION="receipt-ocr-batch-v1" as const;
+export const RECIPE_SCREENSHOT_SCHEMA_VERSION="recipe-screenshot-draft-v1" as const;
 
 export type VerificationStatus="unverified"|"user_verified"|"rejected";
 export type VisionScene="fridge"|"tabletop"|"bagged"|"unknown";
@@ -55,6 +57,74 @@ export type ReceiptOcrDraftV1={
   raw_result:Record<string,unknown>;
   latency_ms:number|null;
   confirmed:boolean;
+};
+
+export type ReceiptOcrBatchDraftV1={
+  source_images:string[];
+  pages:ReceiptOcrDraftV1[];
+  schema_version:typeof RECEIPT_OCR_BATCH_SCHEMA_VERSION;
+  created_at:string;
+  warnings:string[];
+  overlap_items_removed:number;
+  latency_ms:number|null;
+  confirmed:boolean;
+};
+
+export type NoteIngredientCandidate={
+  raw_text:string;
+  name:string|null;
+  amount_text:string|null;
+  verification_status:VerificationStatus;
+};
+
+export type NoteStepCandidate={
+  raw_text:string;
+  order:number|null;
+  verification_status:VerificationStatus;
+};
+
+export type NoteOcrPage={
+  source_image:string;
+  input_index:number;
+  crop_mode:"full"|"right";
+  crop_bbox:BoundingBox;
+  image_width:number;
+  image_height:number;
+  lines:OcrTextLine[];
+  raw_result:Record<string,unknown>;
+  latency_ms:number|null;
+};
+
+export type RecipeScreenshotDraftV1={
+  source_images:string[];
+  provider:string;
+  model_version:string;
+  source_platform:"xiaohongshu";
+  preprocess_version:string;
+  schema_version:typeof RECIPE_SCREENSHOT_SCHEMA_VERSION;
+  created_at:string;
+  pages:NoteOcrPage[];
+  merged_text_lines:string[];
+  title:string|null;
+  author:string|null;
+  description:string|null;
+  ingredients:NoteIngredientCandidate[];
+  steps:NoteStepCandidate[];
+  warnings:string[];
+  raw_result:Record<string,unknown>;
+  latency_ms:number|null;
+  confirmed:boolean;
+};
+
+export type OcrJobStatus="queued"|"running"|"review_required"|"failed";
+export type OcrJobV1={
+  id:string;
+  kind:"receipt"|"xiaohongshu";
+  status:OcrJobStatus;
+  created_at:string;
+  updated_at:string;
+  result:ReceiptOcrBatchDraftV1|RecipeScreenshotDraftV1|null;
+  error:string|null;
 };
 
 /** Exact JSON boundary emitted for one detected fridge/tabletop candidate. */
@@ -148,6 +218,51 @@ export function isReceiptOcrDraftV1(value:unknown):value is ReceiptOcrDraftV1{
     &&isRecord(value.raw_result)
     &&(value.latency_ms===null||(isFiniteNumber(value.latency_ms)&&Number.isInteger(value.latency_ms)&&value.latency_ms>=0))
     &&typeof value.confirmed==="boolean";
+}
+
+export function isReceiptOcrBatchDraftV1(value:unknown):value is ReceiptOcrBatchDraftV1{
+  if(!isRecord(value)||value.schema_version!==RECEIPT_OCR_BATCH_SCHEMA_VERSION)return false;
+  return Array.isArray(value.source_images)&&value.source_images.every(item=>typeof item==="string")
+    &&Array.isArray(value.pages)&&value.pages.every(isReceiptOcrDraftV1)
+    &&typeof value.created_at==="string"
+    &&Array.isArray(value.warnings)&&value.warnings.every(item=>typeof item==="string")
+    &&Number.isInteger(value.overlap_items_removed)&&Number(value.overlap_items_removed)>=0
+    &&(value.latency_ms===null||(Number.isInteger(value.latency_ms)&&Number(value.latency_ms)>=0))
+    &&typeof value.confirmed==="boolean";
+}
+
+function isNotePage(value:unknown):value is NoteOcrPage{
+  return isRecord(value)&&typeof value.source_image==="string"
+    &&Number.isInteger(value.input_index)&&Number(value.input_index)>0
+    &&["full","right"].includes(String(value.crop_mode))
+    &&isBoundingBox(value.crop_bbox)
+    &&Number.isInteger(value.image_width)&&Number(value.image_width)>0
+    &&Number.isInteger(value.image_height)&&Number(value.image_height)>0
+    &&Array.isArray(value.lines)&&value.lines.every(isOcrTextLine)
+    &&isRecord(value.raw_result)
+    &&(value.latency_ms===null||(Number.isInteger(value.latency_ms)&&Number(value.latency_ms)>=0));
+}
+
+export function isRecipeScreenshotDraftV1(value:unknown):value is RecipeScreenshotDraftV1{
+  if(!isRecord(value)||value.schema_version!==RECIPE_SCREENSHOT_SCHEMA_VERSION)return false;
+  return Array.isArray(value.source_images)&&value.source_images.every(item=>typeof item==="string")
+    &&typeof value.provider==="string"&&typeof value.model_version==="string"
+    &&value.source_platform==="xiaohongshu"&&typeof value.preprocess_version==="string"
+    &&typeof value.created_at==="string"&&Array.isArray(value.pages)&&value.pages.every(isNotePage)
+    &&Array.isArray(value.merged_text_lines)&&value.merged_text_lines.every(item=>typeof item==="string")
+    &&isNullableString(value.title)&&isNullableString(value.author)&&isNullableString(value.description)
+    &&Array.isArray(value.ingredients)&&Array.isArray(value.steps)
+    &&Array.isArray(value.warnings)&&value.warnings.every(item=>typeof item==="string")
+    &&isRecord(value.raw_result)&&typeof value.confirmed==="boolean";
+}
+
+export function isOcrJobV1(value:unknown):value is OcrJobV1{
+  if(!isRecord(value)||typeof value.id!=="string")return false;
+  const validResult=value.result===null||isReceiptOcrBatchDraftV1(value.result)||isRecipeScreenshotDraftV1(value.result);
+  return ["receipt","xiaohongshu"].includes(String(value.kind))
+    &&["queued","running","review_required","failed"].includes(String(value.status))
+    &&typeof value.created_at==="string"&&typeof value.updated_at==="string"
+    &&validResult&&(value.error===null||typeof value.error==="string");
 }
 
 export function isVisionCandidateV1(value:unknown):value is VisionCandidateV1{

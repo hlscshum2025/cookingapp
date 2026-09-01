@@ -95,6 +95,8 @@ export function ImportWorkspace(){
     {connectionNotice&&<div className="notice connection-notice">{connectionNotice}</div>}
     {error&&<div className="notice notice-error" role="alert">{error}</div>}
 
+    <div className="notice"><b>图片 OCR 已进入第一版接入。</b> 长小票和小红书长笔记都可以按顺序上传多张截图，识别后先人工核对。 <Link href="/imports/ocr"><u>打开图片 OCR →</u></Link></div>
+
     <ManualUploadQueue onUploaded={refreshPending}/>
 
     <div className={`import-platform-shell ${platform?`platform-${platform} is-open`:""}`}>
