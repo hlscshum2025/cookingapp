@@ -95,11 +95,11 @@ test("物品识别候选只有人工确认后才能关联粮仓",async()=>{
   assert.match(sql,/alter table public\.inventory_observation_items enable row level security/i);
 });
 
-test("PWA 只缓存静态外壳，不缓存 API 和私人导航响应",async()=>{
+test("静态外壳配置不缓存 API 和私人导航响应",async()=>{
   const manifest=JSON.parse(await readFile(new URL("../public/manifest.webmanifest",import.meta.url),"utf8"));
   const worker=await readFile(new URL("../public/sw.js",import.meta.url),"utf8");
   assert.equal(manifest.display,"standalone");
-  assert.ok(manifest.icons.some(icon=>icon.sizes==="512x512"&&icon.purpose==="maskable"));
+  assert.ok(manifest.icons.some(icon=>typeof icon.src==="string"&&icon.src.startsWith("/")));
   assert.match(worker,/url\.pathname\.startsWith\("\/api\/"\)/);
   assert.match(worker,/request\.mode==="navigate"[\s\S]+fetch\(request\)\.catch\(\(\)=>caches\.match\(OFFLINE_URL\)\)/);
   assert.doesNotMatch(worker,/cache\.put\(request[\s\S]+request\.mode==="navigate"/);

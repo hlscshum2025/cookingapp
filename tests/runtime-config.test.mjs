@@ -1,9 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pathToFileURL } from "node:url";
 
 async function builtWorker(){
-  const url=pathToFileURL(new URL("../dist/server/index.js",import.meta.url).pathname);
+  const url=new URL("../dist/server/index.js",import.meta.url);
   url.searchParams.set("runtime-config-test",`${process.pid}-${Date.now()}-${Math.random()}`);
   return (await import(url.href)).default;
 }
