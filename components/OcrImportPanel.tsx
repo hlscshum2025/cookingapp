@@ -6,8 +6,8 @@ import type {OcrJobV1,ReceiptOcrBatchDraftV1,RecipeScreenshotDraftV1} from "@/li
 
 const statusLabel={queued:"等待处理",running:"正在识别",review_required:"等待人工确认",failed:"识别失败"};
 
-export function OcrImportPanel(){
-  const [kind,setKind]=useState<"receipt"|"xiaohongshu">("receipt");
+export function OcrImportPanel({initialKind="receipt"}:{initialKind?:"receipt"|"xiaohongshu"}){
+  const [kind,setKind]=useState<"receipt"|"xiaohongshu">(initialKind);
   const [files,setFiles]=useState<File[]>([]);
   const [job,setJob]=useState<OcrJobV1|null>(null);
   const [error,setError]=useState("");
@@ -43,17 +43,19 @@ export function OcrImportPanel(){
       <button type="button" className="btn btn-primary" disabled={!files.length||busy} onClick={()=>void submit()}>{busy?"OCR worker 正在处理…":"创建识别任务"}</button>
     </section>
     {job?.status==="failed"&&<div className="notice notice-error">{job.error||"识别失败，请重新上传。"}</div>}
-    {job?.status==="review_required"&&job.result&&<OcrReview result={job.result}/>} 
+    {job?.status==="review_required"&&job.result&&<OcrReview result={job.result} totalMs={Math.max(0,Date.parse(job.updated_at)-Date.parse(job.created_at))}/>} 
   </div>;
 }
 
-function OcrReview({result}:{result:OcrJobV1["result"]}){
+function OcrReview({result,totalMs}:{result:OcrJobV1["result"];totalMs:number}){
   if(!result)return null;
+  const modelSeconds=result.latency_ms==null?"未知":`${(result.latency_ms/1000).toFixed(1)} 秒`;
+  const totalSeconds=`${(totalMs/1000).toFixed(1)} 秒`;
   if(result.schema_version==="receipt-ocr-batch-v1"){
     const draft=result as ReceiptOcrBatchDraftV1;
     const items=draft.pages.flatMap(page=>page.items);
-    return <section className="panel"><div className="section-head"><div><p className="eyebrow">REVIEW REQUIRED</p><h2>小票识别草稿</h2></div><span className="badge">{draft.pages.length} 页 · {items.length} 项</span></div>{draft.warnings.map(message=><div className="notice" key={message}>{message}</div>)}<div className="source-list">{items.map((item,index)=><div key={`${item.raw_text}-${index}`}><b>{item.product_name||item.raw_text}</b><small>{item.line_total==null?"价格待补充":`${item.currency} ${item.line_total.toFixed(2)}`} · 置信度 {Math.round(item.confidence*100)}%</small></div>)}</div><div className="notice">第一版暂不直接写入粮仓或记账；确认事务将在下一步接入。</div></section>;
+    return <section className="panel"><div className="section-head"><div><p className="eyebrow">REVIEW REQUIRED</p><h2>小票识别草稿</h2><p className="subtitle">模型处理 {modelSeconds} · 上传、排队和处理总计 {totalSeconds}</p></div><span className="badge">{draft.pages.length} 页 · {items.length} 项</span></div>{draft.warnings.map(message=><div className="notice" key={message}>{message}</div>)}<div className="source-list">{items.map((item,index)=><div key={`${item.raw_text}-${index}`}><b>{item.product_name||item.raw_text}</b><small>{item.line_total==null?"价格待补充":`${item.currency} ${item.line_total.toFixed(2)}`} · 置信度 {Math.round(item.confidence*100)}%</small></div>)}</div><div className="notice">第一版暂不直接写入粮仓或记账；确认事务将在下一步接入。</div></section>;
   }
   const draft=result as RecipeScreenshotDraftV1;
-  return <section className="panel"><div className="section-head"><div><p className="eyebrow">REVIEW REQUIRED</p><h2>{draft.title||"菜谱标题待补充"}</h2><p className="subtitle">{draft.author||"作者待补充"}</p></div><span className="badge">{draft.pages.length} 页</span></div><h3>食材</h3><div className="source-list">{draft.ingredients.map((item,index)=><div key={`${item.raw_text}-${index}`}><b>{item.name||item.raw_text}</b><small>{item.amount_text||"用量待补充"}</small></div>)}</div><h3>步骤</h3><ol>{draft.steps.map((step,index)=><li key={`${step.raw_text}-${index}`}>{step.raw_text}</li>)}</ol><div className="notice">这是未确认草稿，不会自动覆盖正式菜谱。</div></section>;
+  return <section className="panel"><div className="section-head"><div><p className="eyebrow">REVIEW REQUIRED</p><h2>{draft.title||"菜谱标题待补充"}</h2><p className="subtitle">{draft.author||"作者待补充"} · 模型处理 {modelSeconds} · 总计 {totalSeconds}</p></div><span className="badge">{draft.pages.length} 页</span></div><h3>食材</h3><div className="source-list">{draft.ingredients.map((item,index)=><div key={`${item.raw_text}-${index}`}><b>{item.name||item.raw_text}</b><small>{item.amount_text||"用量待补充"}</small></div>)}</div><h3>步骤</h3><ol>{draft.steps.map((step,index)=><li key={`${step.raw_text}-${index}`}>{step.raw_text}</li>)}</ol><div className="notice">这是未确认草稿，不会自动覆盖正式菜谱。</div></section>;
 }

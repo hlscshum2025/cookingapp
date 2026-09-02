@@ -17,7 +17,7 @@ const exporterUrl="https://github.com/hlscshum2025/cookingapp/blob/main/tools/bi
 const platformLabel=(platform:string)=>({bilibili:"Bilibili",xiachufang:"下厨房",xiaohongshu:"小红书",generic_web:"网页"}[platform]||platform||"来源");
 const platforms:{id:PlatformChoice;labelKey:"imports.bilibili"|"imports.xiaohongshu"|"imports.xiachufang"|"imports.more";icon:string;badges:string[]}[]=[
   {id:"bilibili",labelKey:"imports.bilibili",icon:"/platforms/bilibili.ico",badges:["▶ 内嵌视频","⇩ JSON 批量","✎ 人工核验"]},
-  {id:"xiaohongshu",labelKey:"imports.xiaohongshu",icon:"/platforms/xiaohongshu.ico",badges:["↗ 原站查看","⌨ 页面提取","◫ OCR 开发中"]},
+  {id:"xiaohongshu",labelKey:"imports.xiaohongshu",icon:"/platforms/xiaohongshu.ico",badges:["↗ 原站查看","⌨ 页面提取","◫ 多图 OCR"]},
   {id:"xiachufang",labelKey:"imports.xiachufang",icon:"/platforms/xiachufang.ico",badges:["⚡ 自动读取","✎ 人工补充","◫ OCR 后续"]},
   {id:"more",labelKey:"imports.more",icon:"",badges:["＋ 提交建议"]},
 ];
@@ -120,7 +120,7 @@ export function ImportWorkspace(){
           {result&&<div className="notice notice-success"><b>{result.mode==="cloud"?"云端来源导入完成":"来源导入完成"}</b><br/>新增 {result.added}，重复 {result.duplicates}，失败 {result.failed}，跳过 {result.skipped}。</div>}
         </section><aside className="import-audit"><h2>导入审计记录</h2><p className="subtitle">{isDemo?"当前未登录。":"记录来自 Supabase。"}</p>{importJobs.length?<div className="source-list">{importJobs.slice(0,8).map(job=><div key={job.id}><b>{job.fileName||"B站收藏夹导入"}</b><small>{new Date(job.createdAt).toLocaleString("zh-CN")} · 新增 {job.added} · 重复 {job.duplicates} · 失败 {job.failed}</small></div>)}</div>:<div className="empty" style={{padding:"28px 0"}}>暂无导入记录。</div>}</aside></div>
       </>}
-      {platform==="xiaohongshu"&&<UniversalSourceImport platform="xiaohongshu" onSaved={refreshPending}/>}
+      {platform==="xiaohongshu"&&<><UniversalSourceImport platform="xiaohongshu" onSaved={refreshPending}/><div className="notice"><b>只有截图也可以导入。</b> 按笔记顺序上传多张截图，OCR会合并文字并提取食材与步骤。 <Link href="/imports/ocr/xiaohongshu"><u>上传小红书截图 →</u></Link></div></>}
       {platform==="xiachufang"&&<UniversalSourceImport platform="xiachufang" onSaved={refreshPending}/>}
       {platform==="more"&&<PlatformFeedbackForm/>}
       </section>}
