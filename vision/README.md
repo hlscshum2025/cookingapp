@@ -6,6 +6,12 @@
 worker，PaddleOCR 管线由现有的 `lru_cache` 在进程内复用；第一次任务仍有
 模型冷启动耗时，之后同语言、同设备的任务不再重复加载模型。
 
+正式环境使用 `Dockerfile.worker` 运行同一个常驻进程。至少配置
+`SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY` 和精确的
+`VISION_ALLOWED_ORIGINS`；不要在正式环境启用
+`VISION_DEV_ALLOW_UNAUTHENTICATED`。容器平台必须提供持久运行的实例和
+公网 HTTPS 地址，Sites 再通过运行时变量 `VISION_API_URL` 指向它。
+
 ```bash
 python -m pip install -r requirements/service-cpu.txt
 export VISION_DEV_ALLOW_UNAUTHENTICATED=1
