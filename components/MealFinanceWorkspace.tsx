@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { calculateRecipeCost, type IngredientCostInput } from "@/lib/costing";
 import { MealFinanceNav, type MealFinanceModule } from "@/components/MealFinanceNav";
+import { OcrImportPanel } from "@/components/OcrImportPanel";
 import { loadPublicRecipes, togglePublicRecipeLike } from "@/lib/public-recipes";
+import type { ReceiptOcrBatchDraftV1 } from "@/lib/vision-contracts";
 
 const costSeed:IngredientCostInput[]=[
   {id:"flour",name:"面粉",purchasePrice:1.49,currency:"EUR",packageAmount:1000,packageUnit:"g",allocation:{mode:"quantity",usedAmount:500,usedUnit:"g"}},
@@ -12,11 +13,7 @@ const costSeed:IngredientCostInput[]=[
   {id:"seasoning",name:"少量调料",purchasePrice:2.49,currency:"EUR",allocation:{mode:"uses",estimatedUses:50}},
 ];
 
-const ledgerSeed=[
-  {id:"tomato",raw:"BIO TOMATEN 500G",name:"番茄",category:"蔬菜",price:2.49,checked:true},
-  {id:"milk",raw:"H-MILCH 3,5%",name:"牛奶",category:"乳制品",price:1.19,checked:true},
-  {id:"bag",raw:"PFAND / TASCHE",name:"购物袋／押金",category:"非食品",price:.25,checked:false},
-];
+type LedgerItem={id:string;raw:string;name:string;category:string;price:number;checked:boolean;confidence:number};
 
 type RoleKey="helper"|"buyer";
 type Dish={id:string;name:string;chef:string;votes:number;likedByMe:boolean;likeBusy:boolean;claims:Record<RoleKey,boolean>};
@@ -41,8 +38,7 @@ export function MealFinanceWorkspace({initialActive}:{initialActive:MealFinanceM
   const [dishLoadState,setDishLoadState]=useState<"loading"|"ready"|"error">("loading");
   const [openDishId,setOpenDishId]=useState<string|null>(null);
   const [note,setNote]=useState("");
-  const [fileName,setFileName]=useState("");
-  const [ledgerItems,setLedgerItems]=useState(ledgerSeed);
+  const [ledgerItems,setLedgerItems]=useState<LedgerItem[]>([]);
   const costResult=useMemo(()=>{try{return{value:calculateRecipeCost(costItems,servings),error:""}}catch(error){return{value:null,error:error instanceof Error?error.message:"核算失败"}}},[costItems,servings]);
   const foodTotal=useMemo(()=>ledgerItems.filter(item=>item.checked).reduce((sum,item)=>sum+item.price,0),[ledgerItems]);
   const meta=pageMeta[active];
@@ -83,6 +79,18 @@ export function MealFinanceWorkspace({initialActive}:{initialActive:MealFinanceM
   };
   const toggleClaim=(id:string,role:RoleKey)=>setDishes(current=>current.map(item=>item.id===id?{...item,claims:{...item.claims,[role]:!item.claims[role]}}:item));
   const toggleLedgerItem=(id:string)=>setLedgerItems(current=>current.map(item=>item.id===id?{...item,checked:!item.checked}:item));
+  const removeLedgerItem=(id:string)=>setLedgerItems(current=>current.filter(item=>item.id!==id));
+  const receiveReceiptDraft=useCallback((draft:ReceiptOcrBatchDraftV1)=>{
+    setLedgerItems(draft.pages.flatMap((page,pageIndex)=>page.items.map((item,itemIndex)=>({
+      id:`${pageIndex}-${itemIndex}-${item.raw_text}`,
+      raw:item.raw_text,
+      name:item.product_name||item.raw_text,
+      category:"待分类",
+      price:item.line_total??0,
+      checked:true,
+      confidence:item.confidence,
+    }))));
+  },[]);
 
   return <div className="page">
     <header className="page-head"><div><p className="eyebrow">{meta.eyebrow}</p><h1>{meta.title}</h1><p className="subtitle">{meta.subtitle}</p></div><span className={`badge ${meta.warn?"warn":""}`}>{meta.badge}</span></header>
@@ -90,7 +98,7 @@ export function MealFinanceWorkspace({initialActive}:{initialActive:MealFinanceM
     <div className="meal-finance-view" aria-live="polite">
       {active==="costs"&&<CostsView items={costItems} servings={servings} result={costResult} setServings={setServings} updatePrice={updatePrice}/>}
       {active==="gatherings"&&<GatheringsView dishes={dishes} dishLoadState={dishLoadState} openDishId={openDishId} note={note} setNote={setNote} setOpenDishId={setOpenDishId} toggleVote={toggleVote} toggleClaim={toggleClaim}/>}
-      {active==="ledger"&&<LedgerView fileName={fileName} items={ledgerItems} foodTotal={foodTotal} setFileName={setFileName} toggleItem={toggleLedgerItem}/>}
+      {active==="ledger"&&<LedgerView items={ledgerItems} foodTotal={foodTotal} onReceiptDraft={receiveReceiptDraft} toggleItem={toggleLedgerItem} removeItem={removeLedgerItem}/>}
     </div>
   </div>;
 }
@@ -107,8 +115,8 @@ function GatheringsView({dishes,dishLoadState,openDishId,note,setNote,setOpenDis
     </div></>;
 }
 
-function LedgerView({fileName,items,foodTotal,setFileName,toggleItem}:{fileName:string;items:typeof ledgerSeed;foodTotal:number;setFileName:(value:string)=>void;toggleItem:(id:string)=>void}){
-  return <><div className="finance-layout"><section className="panel"><div className="section-head"><div><p className="eyebrow">RECEIPT INBOX</p><h2>小票收件箱</h2></div><span className="badge">OCR 联调</span></div><label className="receipt-drop"><input type="file" accept="image/*,.pdf" onChange={event=>setFileName(event.target.files?.[0]?.name||"")}/><b>▣</b><span><strong>{fileName||"选择小票照片或 PDF"}</strong><small>{fileName?"这里仅预览文件名；请进入OCR页面上传。":"长小票可以按从上到下的顺序上传多张照片。"}</small></span><em>{fileName?"已选择":"浏览文件"}</em></label><div className="receipt-steps"><span className="done">1 上传</span><span className={fileName?"current":""}>2 识别</span><span>3 核对</span><span>4 记账</span></div><Link className="btn btn-primary full-width-action" href="/imports/ocr">上传小票并建立草稿 →</Link></section>
+function LedgerView({items,foodTotal,onReceiptDraft,toggleItem,removeItem}:{items:LedgerItem[];foodTotal:number;onReceiptDraft:(draft:ReceiptOcrBatchDraftV1)=>void;toggleItem:(id:string)=>void;removeItem:(id:string)=>void}){
+  return <><div className="finance-layout"><section><OcrImportPanel initialKind="receipt" lockedKind embedded onReceiptDraft={onReceiptDraft}/></section>
     <aside className="panel"><div className="section-head"><div><p className="eyebrow">MONTH</p><h2>2026 年 8 月</h2></div><span className="badge">EUR</span></div><div className="ledger-total"><span>饮食支出</span><b>€186.40</b><small>预算 €260 · 剩余 €73.60</small></div><div className="ledger-bar"><span style={{width:"72%"}}/></div><ul className="ledger-categories"><li><span>食材采购</span><b>€142.10</b></li><li><span>外食</span><b>€34.80</b></li><li><span>饮品</span><b>€9.50</b></li></ul></aside></div>
-    <section className="panel ledger-review"><div className="section-head"><div><p className="eyebrow">REVIEW DRAFT</p><h2>识别结果核对示例</h2><p className="subtitle">原始文字永远保留；匹配词典后仍由你确认哪些属于饮食支出。</p></div><b className="ledger-food-total">食品 €{foodTotal.toFixed(2)}</b></div><div className="table-wrap"><table><thead><tr><th>计入</th><th>小票原文</th><th>词典匹配</th><th>分类</th><th>金额</th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td><input type="checkbox" checked={item.checked} onChange={()=>toggleItem(item.id)} aria-label={`${item.name}计入饮食账本`}/></td><td><code>{item.raw}</code></td><td><b>{item.name}</b></td><td><span className="tag">{item.category}</span></td><td>€{item.price.toFixed(2)}</td></tr>)}</tbody></table></div><div className="source-actions ledger-actions"><button className="btn btn-secondary" disabled>保存为待核对</button><button className="btn btn-primary" disabled>确认并记账</button></div></section></>;
+    <section className="panel ledger-review"><div className="section-head"><div><p className="eyebrow">REVIEW DRAFT</p><h2>小票待核对清单</h2><p className="subtitle">食品、日用品和暂时无法分类的商品都会保留；不需要的行可以直接删除。</p></div><b className="ledger-food-total">已保留 €{foodTotal.toFixed(2)}</b></div>{items.length?<div className="table-wrap"><table><thead><tr><th>计入</th><th>小票原文</th><th>识别名称</th><th>分类</th><th>金额</th><th>删除</th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td><input type="checkbox" checked={item.checked} onChange={()=>toggleItem(item.id)} aria-label={`${item.name}计入账本`}/></td><td><code>{item.raw}</code><br/><small>置信度 {Math.round(item.confidence*100)}%</small></td><td><b>{item.name}</b></td><td><span className="tag">{item.category}</span></td><td>€{item.price.toFixed(2)}</td><td><button type="button" className="icon-btn" onClick={()=>removeItem(item.id)} aria-label={`删除 ${item.name}`}>×</button></td></tr>)}</tbody></table></div>:<div className="empty"><span>▤</span><h2>等待小票识别</h2><p>上传并识别后，商品会自动出现在这里。</p></div>}<div className="source-actions ledger-actions"><button className="btn btn-secondary" disabled={!items.length}>保存为待核对</button><button className="btn btn-primary" disabled>确认并记账（下一步）</button></div></section></>;
 }

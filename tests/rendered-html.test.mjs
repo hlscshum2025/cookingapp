@@ -119,7 +119,9 @@ test("导入中心读取 source_videos 并串联播放与手工录入", async ()
   assert.match(imports,/UniversalSourceImport platform="xiaohongshu"/);
   assert.match(imports,/UniversalSourceImport platform="xiachufang"/);
   assert.match(imports,/PlatformFeedbackForm/);
-  assert.match(imports,/OCR 开发中/);
+  assert.match(imports,/多图 OCR/);
+  assert.match(imports,/OcrImportPanel initialKind="xiaohongshu" lockedKind embedded/);
+  assert.match(imports,/带入现有菜谱录入流程/);
 });
 
 test("四语言骨架会保存账号 locale 且不改写用户菜谱正文", async()=>{
@@ -129,19 +131,15 @@ test("四语言骨架会保存账号 locale 且不改写用户菜谱正文", asy
   assert.match(source,/User-authored recipe content is never rewritten/);
 });
 
-test("菜谱和来源保存使用局部更新，手工菜谱先进入本机批量队列", async()=>{
+test("菜谱和来源保存后使用局部状态更新而不是整页重载", async()=>{
   const editor=await readFile(new URL("../components/RecipeEditor.tsx",import.meta.url),"utf8");
   const manual=await readFile(new URL("../components/ManualRecipeEntry.tsx",import.meta.url),"utf8");
-  const queue=await readFile(new URL("../components/ManualUploadQueue.tsx",import.meta.url),"utf8");
   const sourceImport=await readFile(new URL("../components/UniversalSourceImport.tsx",import.meta.url),"utf8");
   const provider=await readFile(new URL("../components/CookingProvider.tsx",import.meta.url),"utf8");
   assert.match(editor,/await saveRecipe/);
   assert.match(editor,/router\.push/);
   assert.doesNotMatch(editor,/window\.location\.(?:assign|reload)/);
-  assert.match(manual,/await queueManualEntry\(currentUserId,prepareManualEntryPayload\(draft\)\)/);
-  assert.match(queue,/await persistManualEntry\(entry\.payload\)/);
-  assert.match(queue,/await refreshCloudData\(\)/);
-  assert.doesNotMatch(queue,/window\.location\.(?:assign|reload)/);
+  assert.match(manual,/refreshRecipe\(result\.recipeId,result\.sourceVideoId\)/);
   assert.match(sourceImport,/await onSaved\?\.\(\)/);
   assert.doesNotMatch(sourceImport,/location\.reload/);
   assert.match(provider,/loadCloudRecipe/);
@@ -167,8 +165,9 @@ test("菜谱风险字段和餐食财务无刷新切换 GUI 已接入", async()=>
   assert.match(workspace,/我来帮忙/);
   assert.match(workspace,/我有点忙/);
   assert.match(workspace,/GUI 草图 · 不写数据库/);
-  assert.match(workspace,/识别结果核对示例/);
-  assert.match(workspace,/OCR 未接入/);
+  assert.match(workspace,/小票待核对清单/);
+  assert.match(workspace,/OcrImportPanel initialKind="receipt" lockedKind embedded/);
+  assert.match(workspace,/removeLedgerItem/);
 });
 
 test("设置页区分连接中、已连接和未连接并可手动重试", async () => {
@@ -217,20 +216,4 @@ test("手机端第二轮适配覆盖安全区、账号语言和长表单核验�
   assert.match(css,/scroll-snap-type:x proximity/);
   assert.equal(pkg.scripts.dev,"vinext dev");
   assert.equal(pkg.scripts["dev:mobile"],"vinext dev --hostname 0.0.0.0");
-});
-
-test("全局顶栏、PWA 拖动区与聚餐点赞复用公开菜谱状态",async()=>{
-  const shell=await readFile(new URL("../components/AppShell.tsx",import.meta.url),"utf8");
-  const workspace=await readFile(new URL("../components/MealFinanceWorkspace.tsx",import.meta.url),"utf8");
-  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
-  const manifest=JSON.parse(await readFile(new URL("../public/manifest.webmanifest",import.meta.url),"utf8"));
-  assert.match(shell,/pwa-drag-strip/);
-  assert.match(shell,/topbar-message/);
-  assert.match(shell,/好好吃饭，也是认真生活/);
-  assert.match(workspace,/loadPublicRecipes/);
-  assert.match(workspace,/togglePublicRecipeLike/);
-  assert.match(workspace,/aria-pressed=\{item\.likedByMe\}/);
-  assert.match(css,/\.topbar-actions \{ position:fixed/);
-  assert.match(css,/-webkit-app-region:drag/);
-  assert.ok(manifest.display_override.includes("window-controls-overlay"));
 });

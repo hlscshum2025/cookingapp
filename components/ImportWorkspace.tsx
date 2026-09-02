@@ -6,10 +6,12 @@ import { prepareBilibiliImport, type PreparedBilibiliImport } from "@/lib/bilibi
 import { useCooking } from "@/components/CookingProvider";
 import { ManualRecipeEntry } from "@/components/ManualRecipeEntry";
 import { ManualUploadQueue } from "@/components/ManualUploadQueue";
+import { OcrImportPanel } from "@/components/OcrImportPanel";
 import { PlatformFeedbackForm } from "@/components/PlatformFeedbackForm";
 import { UniversalSourceImport, type ImportPlatform } from "@/components/UniversalSourceImport";
 import { discardPendingSourceVideo, loadPendingSourceVideos } from "@/lib/source-videos";
 import type { ImportResult, SourceVideo } from "@/lib/types";
+import type { RecipeScreenshotDraftV1 } from "@/lib/vision-contracts";
 import { useLocale } from "@/lib/i18n";
 
 type PlatformChoice=ImportPlatform|"more";
@@ -28,6 +30,28 @@ function durationLabel(seconds?:number){
   return `${minutes}:${String(seconds%60).padStart(2,"0")}`;
 }
 
+function ocrDraftToSource(draft:RecipeScreenshotDraftV1):SourceVideo{
+  const id=`xiaohongshu-ocr-${Date.now()}`;
+  return {
+    id,
+    platform:"xiaohongshu",
+    externalId:id,
+    url:"",
+    title:draft.title||"小红书截图菜谱",
+    uploaderName:draft.author||"",
+    coverUrl:"",
+    description:draft.description||"",
+    availability:"review_required",
+    extractedRecipe:{
+      summary:draft.description||"",
+      ingredients:draft.ingredients.map(item=>({name:item.name||item.raw_text,amount:item.amount_text||"",unit:""})),
+      steps:draft.steps.map(item=>item.raw_text),
+      extractionMethod:"page_text",
+    },
+    updatedAt:new Date().toISOString(),
+  };
+}
+
 export function ImportWorkspace(){
   const {sourceVideos,importJobs,isDemo,cloudStatus,importVideos}=useCooking();
   const {t}=useLocale();
@@ -43,6 +67,7 @@ export function ImportWorkspace(){
   const [result,setResult]=useState<ImportResult|null>(null);
   const [busy,setBusy]=useState(false);
   const [deleting,setDeleting]=useState(false);
+  const [ocrSource,setOcrSource]=useState<SourceVideo|null>(null);
   const bilibiliPlayerRef=useRef<HTMLIFrameElement>(null);
 
   const refreshPending=useCallback(async()=>{
@@ -120,7 +145,7 @@ export function ImportWorkspace(){
           {result&&<div className="notice notice-success"><b>{result.mode==="cloud"?"云端来源导入完成":"来源导入完成"}</b><br/>新增 {result.added}，重复 {result.duplicates}，失败 {result.failed}，跳过 {result.skipped}。</div>}
         </section><aside className="import-audit"><h2>导入审计记录</h2><p className="subtitle">{isDemo?"当前未登录。":"记录来自 Supabase。"}</p>{importJobs.length?<div className="source-list">{importJobs.slice(0,8).map(job=><div key={job.id}><b>{job.fileName||"B站收藏夹导入"}</b><small>{new Date(job.createdAt).toLocaleString("zh-CN")} · 新增 {job.added} · 重复 {job.duplicates} · 失败 {job.failed}</small></div>)}</div>:<div className="empty" style={{padding:"28px 0"}}>暂无导入记录。</div>}</aside></div>
       </>}
-      {platform==="xiaohongshu"&&<><UniversalSourceImport platform="xiaohongshu" onSaved={refreshPending}/><div className="notice"><b>只有截图也可以导入。</b> 按笔记顺序上传多张截图，OCR会合并文字并提取食材与步骤。 <Link href="/imports/ocr/xiaohongshu"><u>上传小红书截图 →</u></Link></div></>}
+      {platform==="xiaohongshu"&&<><UniversalSourceImport platform="xiaohongshu" onSaved={refreshPending}/><div className="divider"/><OcrImportPanel initialKind="xiaohongshu" lockedKind embedded onRecipeDraft={draft=>{setOcrSource(ocrDraftToSource(draft));window.setTimeout(()=>document.getElementById("xiaohongshu-ocr-entry")?.scrollIntoView({behavior:"smooth",block:"start"}),0);}}/>{ocrSource&&<section id="xiaohongshu-ocr-entry" className="manual-workspace-section"><div className="section-head"><div><p className="eyebrow">OCR RECIPE DRAFT</p><h2>核对并保存：{ocrSource.title}</h2><p className="subtitle">OCR 内容已经带入现有菜谱录入流程；确认食材、用量和步骤后再保存。</p></div><button type="button" className="btn btn-secondary" onClick={()=>setOcrSource(null)}>关闭</button></div><ManualRecipeEntry key={ocrSource.id} initialSource={ocrSource}/></section>}</>}
       {platform==="xiachufang"&&<UniversalSourceImport platform="xiachufang" onSaved={refreshPending}/>}
       {platform==="more"&&<PlatformFeedbackForm/>}
       </section>}

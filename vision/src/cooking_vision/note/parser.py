@@ -233,6 +233,24 @@ def _split_ingredients(lines: list[str]) -> list[NoteIngredientCandidate]:
         for segment in re.split(r"[、，,；;]", line):
             parsed = _parse_ingredient(segment)
             if parsed is not None:
+                # OCR keeps visual lines intact.  Notes often wrap a long
+                # ingredient row so the name ends one line and its amount
+                # starts the next one (for example "茄子" / "400g").  Treat
+                # an amount-only fragment as a continuation of the previous
+                # ingredient instead of exposing it as a second ingredient.
+                if (
+                    parsed.name is None
+                    and parsed.amount_text
+                    and candidates
+                    and candidates[-1].amount_text is None
+                ):
+                    previous = candidates[-1]
+                    candidates[-1] = NoteIngredientCandidate(
+                        raw_text=f"{previous.raw_text} {parsed.raw_text}",
+                        name=previous.name,
+                        amount_text=parsed.amount_text,
+                    )
+                    continue
                 candidates.append(parsed)
     return candidates
 

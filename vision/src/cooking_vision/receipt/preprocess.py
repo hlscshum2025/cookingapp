@@ -15,6 +15,10 @@ class PreprocessResult:
     binary:np.ndarray
     document_found:bool
 
+    def enhanced_ocr_image(self)->np.ndarray:
+        """Return contrast-normalized text as the three channels Paddle expects."""
+        return cv2.cvtColor(self.grayscale,cv2.COLOR_GRAY2BGR)
+
 
 def read_image(path:str|Path)->np.ndarray:
     """Read Windows paths containing Chinese or German characters reliably."""
