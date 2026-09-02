@@ -9,6 +9,8 @@ interface Env {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY?: string;
   NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
+  VISION_API_URL?: string;
+  NEXT_PUBLIC_VISION_API_URL?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -34,7 +36,7 @@ const worker = {
     const url = new URL(request.url);
 
     // Browser code cannot read a Worker's runtime environment directly. Serve
-    // only Supabase's public browser configuration from the runtime binding so
+    // only public browser configuration from the runtime binding so
     // deployments do not depend on values being present during the local build.
     if (url.pathname === "/api/runtime-config") {
       if (request.method !== "GET") {
@@ -54,6 +56,7 @@ const worker = {
           supabaseUrl,
           supabasePublishableKey,
           turnstileSiteKey: env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || undefined,
+          visionApiUrl: env.VISION_API_URL ?? env.NEXT_PUBLIC_VISION_API_URL ?? undefined,
         },
         { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=86400", "X-Content-Type-Options": "nosniff" } },
       );

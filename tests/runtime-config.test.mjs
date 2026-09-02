@@ -9,12 +9,13 @@ async function builtWorker(){
 
 const ctx={waitUntil(){},passThroughOnException(){}};
 
-test("运行时接口只返回 Supabase 浏览器公开配置",async()=>{
+test("运行时接口只返回浏览器公开配置",async()=>{
   const worker=await builtWorker();
   const response=await worker.fetch(new Request("https://cookingapp.example/api/runtime-config"),{
     NEXT_PUBLIC_SUPABASE_URL:"https://project.supabase.co",
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:"sb_publishable_test_public_key",
     NEXT_PUBLIC_TURNSTILE_SITE_KEY:"0x4AAAAAAAtest_public_site_key",
+    VISION_API_URL:"https://vision.example.com",
     SUPABASE_SECRET_KEY:"must-not-leak",
   },ctx);
   assert.equal(response.status,200);
@@ -23,6 +24,7 @@ test("运行时接口只返回 Supabase 浏览器公开配置",async()=>{
     supabaseUrl:"https://project.supabase.co",
     supabasePublishableKey:"sb_publishable_test_public_key",
     turnstileSiteKey:"0x4AAAAAAAtest_public_site_key",
+    visionApiUrl:"https://vision.example.com",
   });
 });
 
