@@ -2,15 +2,34 @@
 
 ## OCR worker（第一版）
 
-网页不会为每张图片重新启动一次 Python。`uvicorn` 启动一个长期运行的
-worker，PaddleOCR 管线由现有的 `lru_cache` 在进程内复用；第一次任务仍有
-模型冷启动耗时，之后同语言、同设备的任务不再重复加载模型。
+当前默认采用“Sites 上传到 Supabase 私有队列，管理员电脑按需处理”的方式。
+网页不需要直接访问管理员电脑，也不需要为 PaddleOCR 单独购买一台 24 小时在线
+的云服务器：用户可以先提交图片并关闭页面，管理员之后启动本地 worker，结果写回
+同一条账号隔离的任务，用户再次打开导入中心或饮食记账即可继续核对。
 
-正式环境使用 `Dockerfile.worker` 运行同一个常驻进程。至少配置
-`SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY` 和精确的
-`VISION_ALLOWED_ORIGINS`；不要在正式环境启用
-`VISION_DEV_ALLOW_UNAUTHENTICATED`。容器平台必须提供持久运行的实例和
-公网 HTTPS 地址，Sites 再通过运行时变量 `VISION_API_URL` 指向它。
+本地 worker 需要服务器端密钥，因此只能在管理员电脑或受信服务器运行。密钥不得
+写入 Git、Sites 环境变量或任何 `NEXT_PUBLIC_` 变量。PowerShell 示例：
+
+```powershell
+$env:SUPABASE_URL="https://你的项目.supabase.co"
+$env:SUPABASE_SECRET_KEY="你的 sb_secret_... 密钥"
+python -m cooking_vision.cli queue-worker
+```
+
+只处理队列中至多一个任务后退出：
+
+```powershell
+python -m cooking_vision.cli queue-worker --once
+```
+
+Sites 已发布时不需要同时运行 `npm`；只有本地开发网页时才在另一个终端运行
+`npm run dev`。worker 在一个进程内复用 PaddleOCR 模型：第一次任务有模型冷启动，
+之后同语言、同设备的任务不会重复加载模型。
+
+若以后需要秒级自动响应，可把同一 worker 部署为长期运行的容器，并将
+`NEXT_PUBLIC_OCR_TRANSPORT=direct`。此时至少配置 `SUPABASE_URL`、
+`SUPABASE_PUBLISHABLE_KEY`、精确的 `VISION_ALLOWED_ORIGINS` 和
+`VISION_API_URL`；不要在正式环境启用 `VISION_DEV_ALLOW_UNAUTHENTICATED`。
 
 ```bash
 python -m pip install -r requirements/service-cpu.txt
@@ -19,7 +38,8 @@ export VISION_ALLOWED_ORIGINS=http://localhost:3000
 uvicorn cooking_vision.service:app --host 127.0.0.1 --port 8000
 ```
 
-正式环境不要设置 `VISION_DEV_ALLOW_UNAUTHENTICATED=1`，而应设置
+以下 `uvicorn` 命令只用于 direct 模式的本地联调。正式环境不要设置
+`VISION_DEV_ALLOW_UNAUTHENTICATED=1`，而应设置
 `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY` 和严格的
 `VISION_ALLOWED_ORIGINS`。接口接受1–12张有序图片，立即返回任务ID，网页轮询：
 
@@ -28,10 +48,12 @@ uvicorn cooking_vision.service:app --host 127.0.0.1 --port 8000
 - `GET /v1/ocr/jobs/{job_id}`
 
 任务状态依次为 `queued → running → review_required`，失败则为 `failed`。
-当前任务表是单进程内存实现，适合本地第一版联调；图片处理后立即删除，结果
-也不会自动写入粮仓、记账或正式菜谱。部署多副本前必须换成 Supabase 持久任务表。
+direct 模式的任务表仍是单进程内存实现，只适合本地联调；默认 queue 模式使用
+Supabase 持久任务表和私有 `ocr-inputs` bucket。两种模式都只返回待确认草稿，
+不会自动写入粮仓、记账或正式菜谱。
 
-这个目录用于本地学习和实验，不会直接连接或写入 Supabase。当前已经预留三条路线：
+除 `queue-worker` 外，这个目录中的单图、批处理和 demo 命令只在本地读写文件。
+当前已经预留三条路线：
 
 1. 德国小票：OpenCV 预处理 → PaddleOCR → 商品行候选 → `ReceiptOcrDraft` JSON；
 2. 小红书菜谱截图：截图文字区裁剪 → 中文 OCR → 多图去重合并 → 菜谱候选 JSON；

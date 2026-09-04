@@ -8,6 +8,11 @@
 2. `20260822092944_receipt_ocr_fk_indexes.sql`
 3. `20260827062435_inventory_recognition_contract.sql`
 
+网页实际使用的异步上传队列已经通过 DEV 验证并进入活动 migration：
+
+- `../migrations/20260904053238_async_ocr_queue.sql`
+- `../migrations/20260904053245_ocr_queue_owner_index.sql`
+
 它们已经按上述顺序应用到 DEV，但 PROD 尚未执行。发布前需要：
 
 1. 在 DEV 应用并完成 RLS、外键和 Storage 私有访问测试；

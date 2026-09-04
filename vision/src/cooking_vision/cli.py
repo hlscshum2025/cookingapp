@@ -60,6 +60,10 @@ def build_parser()->argparse.ArgumentParser:
     detect.add_argument("--image-size",type=int,default=640)
     detect.add_argument("--device",default="cpu")
 
+    queue_worker=commands.add_parser("queue-worker",help="Process persistent Supabase OCR jobs on this computer")
+    queue_worker.add_argument("--once",action="store_true",help="Process at most one queued job and exit")
+    queue_worker.add_argument("--poll-seconds",type=float,default=10.0,help="Seconds between empty-queue checks")
+
     commands.add_parser("environment",help="Show installed baseline package versions")
     return parser
 
@@ -165,6 +169,9 @@ def main(argv:Sequence[str]|None=None)->int:
         print(f"Vision candidates: {len(candidates)}")
         print(path)
         return 0
+    if args.command=="queue-worker":
+        from cooking_vision.queue_worker import run_queue_worker
+        return run_queue_worker(once=args.once,poll_seconds=args.poll_seconds)
     return 2
 
 

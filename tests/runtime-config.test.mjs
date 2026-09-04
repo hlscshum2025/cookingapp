@@ -25,6 +25,7 @@ test("运行时接口只返回浏览器公开配置",async()=>{
     supabasePublishableKey:"sb_publishable_test_public_key",
     turnstileSiteKey:"0x4AAAAAAAtest_public_site_key",
     visionApiUrl:"https://vision.example.com",
+    ocrTransport:"queue",
   });
 });
 

@@ -30,7 +30,7 @@
 
 ## 当前结构状态
 
-**2026-08-27：已发布功能的 DEV / PROD 结构保持对齐；小票 OCR 与物品识别候选契约只在 DEV 建立并通过结构/RLS核验，因此现在存在两组有意保留的 `待同步 PROD` 差异。本次未修改 PROD。当前 PWA 与本机菜谱队列不读写这些新表，可以独立发布。**
+**2026-09-04：网页实际使用的异步 OCR 队列已完成 DEV → PROD 同步；小票采购事实与物品识别候选契约仍只在 DEV，因此仍保留两组有意的 `待同步 PROD` 差异。当前 OCR 页面只读写已同步的 `ocr_jobs/ocr_job_files` 和私有 `ocr-inputs`，不会调用尚未上线的采购/视觉候选表。**
 
 已核对范围：
 
@@ -55,6 +55,7 @@
 | 2026-08-22 | 用户反馈队列：`feedback_submissions`、owner/admin RLS、队列和外键索引 | `20260822041524_feedback_submissions.sql` | 已执行并验证 | 已执行并验证 | **已同步** | 登录用户只能读自己的反馈并提交 `new/P3`；管理员可读全体并更新；anon 无权限 |
 | 2026-08-22 | 小票 OCR 数据基座：5 张 owner-only 表、复合 owner 外键、查询索引、私有 `receipt-images` bucket 与 Storage RLS | `pending_migrations/20260822092846_receipt_ocr_schema.sql` + `pending_migrations/20260822092944_receipt_ocr_fk_indexes.sql` | 已执行并验证 | 未执行 | **待同步 PROD** | 当前没有前端写入依赖；必须等小票核验界面进入发布批次后再同步 |
 | 2026-08-27 | OCR / 物品识别与词典、粮仓契约桥接：补齐 owner 级词典外键、采购到库存关联，新增 2 张视觉候选表与私有 `inventory-images` bucket | `pending_migrations/20260827062435_inventory_recognition_contract.sql` | 已执行并验证 | 未执行 | **待同步 PROD** | 只保存模型候选；必须经用户确认后才允许关联 `pantry_items`，当前 PWA/菜谱批量上传不依赖 |
+| 2026-09-04 | 异步 OCR 上传队列：`ocr_jobs`、`ocr_job_files`、私有 `ocr-inputs` bucket、受限状态转换和 owner 覆盖索引 | `20260904053238_async_ocr_queue.sql` + `20260904053245_ocr_queue_owner_index.sql` | 已执行并验证（DEV history：`20260904052623/20260904052747`） | 已执行并验证（PROD history 与文件名一致） | **已同步** | 登录用户只能管理自己的上传/任务；浏览器不能写 worker 结果；本地 worker 使用服务器端 secret，Sites 仅保存公开配置 |
 
 ## 2026-08-14 DEV → PROD 增量业务数据合并
 
@@ -91,7 +92,7 @@
 - 临时 DEV 导出 / PROD 导入 Edge Function 已覆盖为 `410 retired` 且重新启用 JWT 验证。
 - 为迁移临时启用的 PROD `http` extension 已删除，没有作为永久数据库依赖保留。
 
-## V2 OCR / 物品识别 / 词典 / 粮仓：DEV 已实施契约（待同步 PROD）
+## V2 OCR / 物品识别 / 词典 / 粮仓：DEV 已实施契约（部分待同步 PROD）
 
 > 2026-08-18 完成设计，2026-08-22 已生成 migration 并只在 DEV 执行。当前属于真实 DEV / PROD 差异；PROD 仍不做任何变化，直到用户本地检查并明确要求发布。
 
@@ -164,7 +165,8 @@ purchase_records
 - 数量、单位、价格允许空值；OCR 猜不出的字段不能伪造。
 - `verification_status` 至少区分 `unverified`、`user_verified`、`rejected`；只有确认后的记录才能进入成本或库存自动化。
 - 小票可能包含支付、交易或会员信息；公开分享 API 永不返回小票原图、`raw_result` 或非必要交易字段。
-- 已使用三个版本化 migration 在 DEV 执行，并核对 7 张候选/采购表的 owner-only RLS、复合 owner 外键、覆盖索引及两个私有 Storage bucket 的 owner policy。
+- 已使用三个待发布 migration 在 DEV 执行，并核对 7 张候选/采购表的 owner-only RLS、复合 owner 外键、覆盖索引及两个私有 Storage bucket 的 owner policy；另有两份异步 OCR 队列 migration 已于 2026-09-04 在 DEV/PROD 同步。
+- 异步队列实测：`ocr_jobs` 4 条 owner policy、`ocr_job_files` 3 条 owner policy；`anon` 无表权限；浏览器只能建立/排队自己的任务，不能写 `result/worker_id`；`ocr-inputs` 为 15MB、JPEG/PNG/WebP 私有 bucket。
 - 2026-08-27 advisor：新识别表没有未索引外键；刚创建的索引显示 `unused_index` 属正常信息项，需要有真实查询量后再评估。项目级安全告警仅为泄露密码检测未启用，见 [Supabase 密码安全说明](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)。
 
 ## 发布前给 Work / 发布聊天的固定检查单

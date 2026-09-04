@@ -116,7 +116,7 @@ export type RecipeScreenshotDraftV1={
   confirmed:boolean;
 };
 
-export type OcrJobStatus="queued"|"running"|"review_required"|"failed";
+export type OcrJobStatus="uploading"|"queued"|"processing"|"running"|"review_required"|"completed"|"failed"|"cancelled";
 export type OcrJobV1={
   id:string;
   kind:"receipt"|"xiaohongshu";
@@ -260,7 +260,7 @@ export function isOcrJobV1(value:unknown):value is OcrJobV1{
   if(!isRecord(value)||typeof value.id!=="string")return false;
   const validResult=value.result===null||isReceiptOcrBatchDraftV1(value.result)||isRecipeScreenshotDraftV1(value.result);
   return ["receipt","xiaohongshu"].includes(String(value.kind))
-    &&["queued","running","review_required","failed"].includes(String(value.status))
+    &&["uploading","queued","processing","running","review_required","completed","failed","cancelled"].includes(String(value.status))
     &&typeof value.created_at==="string"&&typeof value.updated_at==="string"
     &&validResult&&(value.error===null||typeof value.error==="string");
 }

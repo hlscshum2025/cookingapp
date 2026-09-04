@@ -61,4 +61,6 @@ test("网页契约接受多页小票异步审核任务",()=>{
   };
   assert.equal(isOcrJobV1(job),true);
   assert.equal(isOcrJobV1({...job,status:"confirmed"}),false);
+  assert.equal(isOcrJobV1({...job,status:"queued",result:null}),true);
+  assert.equal(isOcrJobV1({...job,status:"processing",result:null}),true);
 });

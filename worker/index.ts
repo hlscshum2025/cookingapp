@@ -11,6 +11,8 @@ interface Env {
   NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
   VISION_API_URL?: string;
   NEXT_PUBLIC_VISION_API_URL?: string;
+  OCR_TRANSPORT?: string;
+  NEXT_PUBLIC_OCR_TRANSPORT?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -57,6 +59,7 @@ const worker = {
           supabasePublishableKey,
           turnstileSiteKey: env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || undefined,
           visionApiUrl: env.VISION_API_URL ?? env.NEXT_PUBLIC_VISION_API_URL ?? undefined,
+          ocrTransport: (env.OCR_TRANSPORT ?? env.NEXT_PUBLIC_OCR_TRANSPORT) === "direct" ? "direct" : "queue",
         },
         { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=86400", "X-Content-Type-Options": "nosniff" } },
       );

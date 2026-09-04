@@ -43,12 +43,19 @@ def write_image(path:str|Path,image:np.ndarray)->Path:
     return destination
 
 
-def _resize(image:np.ndarray,max_side:int)->np.ndarray:
+def _resize(image:np.ndarray,max_side:int,min_portrait_width:int=960)->np.ndarray:
     height,width=image.shape[:2]
     longest=max(height,width)
     if longest<=max_side:
         return image.copy()
     scale=max_side/longest
+    # Limiting a very long receipt by height can reduce its width to only a
+    # few hundred pixels, making ordinary product text disappear while one
+    # large word such as "Kartenzahlung" survives.  Preserve a readable paper
+    # width; the pipeline processes the resulting tall image in overlapping
+    # vertical tiles instead of shrinking it again.
+    if height>width and width*scale<min_portrait_width:
+        scale=min(1.0,min_portrait_width/width)
     return cv2.resize(image,(round(width*scale),round(height*scale)),interpolation=cv2.INTER_AREA)
 
 

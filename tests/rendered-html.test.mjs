@@ -131,7 +131,7 @@ test("四语言骨架会保存账号 locale 且不改写用户菜谱正文", asy
   assert.match(source,/User-authored recipe content is never rewritten/);
 });
 
-test("菜谱和来源保存后使用局部状态更新而不是整页重载", async()=>{
+test("菜谱和来源保存后使用局部状态更新或本机队列而不是整页重载", async()=>{
   const editor=await readFile(new URL("../components/RecipeEditor.tsx",import.meta.url),"utf8");
   const manual=await readFile(new URL("../components/ManualRecipeEntry.tsx",import.meta.url),"utf8");
   const sourceImport=await readFile(new URL("../components/UniversalSourceImport.tsx",import.meta.url),"utf8");
@@ -139,7 +139,8 @@ test("菜谱和来源保存后使用局部状态更新而不是整页重载", as
   assert.match(editor,/await saveRecipe/);
   assert.match(editor,/router\.push/);
   assert.doesNotMatch(editor,/window\.location\.(?:assign|reload)/);
-  assert.match(manual,/refreshRecipe\(result\.recipeId,result\.sourceVideoId\)/);
+  assert.match(manual,/await queueManualEntry\(currentUserId,prepareManualEntryPayload\(draft\)\)/);
+  assert.doesNotMatch(manual,/window\.location\.(?:assign|reload)/);
   assert.match(sourceImport,/await onSaved\?\.\(\)/);
   assert.doesNotMatch(sourceImport,/location\.reload/);
   assert.match(provider,/loadCloudRecipe/);

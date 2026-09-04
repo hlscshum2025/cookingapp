@@ -60,7 +60,19 @@ test("小票 OCR owner 复合外键都有覆盖索引",async()=>{
   assert.match(sql,/purchase_records\(source_receipt_item_id,owner_id\)/i);
 });
 
-test("活动 migration 与远端历史一致，待验收 OCR 不会自动部署",async()=>{
+test("异步 OCR 队列使用 owner RLS 和私有有序图片",async()=>{
+  const sql=await readFile(new URL("../supabase/migrations/20260904053238_async_ocr_queue.sql",import.meta.url),"utf8");
+  for(const table of ["ocr_jobs","ocr_job_files"]){
+    assert.match(sql,new RegExp(`alter table public\\.${table} enable row level security`,"i"));
+    assert.match(sql,new RegExp(`${table}_(?:select|insert)_own`,"i"));
+  }
+  assert.match(sql,/status in \('uploading','queued','processing','review_required','completed','failed','cancelled'\)/i);
+  assert.match(sql,/unique \(job_id,input_index\)/i);
+  assert.match(sql,/ocr-inputs[\s\S]+public\s*=\s*false/i);
+  assert.doesNotMatch(sql,/grant all privileges[^;]+to authenticated/i);
+});
+
+test("活动 migration 与 PROD 历史一致，研究型 OCR migration 仍留在待发布目录",async()=>{
   const files=(await readdir(new URL("../supabase/migrations/",import.meta.url))).sort();
   assert.deepEqual(files,[
     "20260809082241_manual_recipe_entry.sql",
@@ -75,6 +87,8 @@ test("活动 migration 与远端历史一致，待验收 OCR 不会自动部署"
     "20260812111419_moderated_public_recipes.sql",
     "20260822041524_feedback_submissions.sql",
     "20260822084649_pantry_storage_location.sql",
+    "20260904053238_async_ocr_queue.sql",
+    "20260904053245_ocr_queue_owner_index.sql",
   ]);
   const pending=(await readdir(new URL("../supabase/pending_migrations/",import.meta.url))).sort();
   assert.deepEqual(pending,[

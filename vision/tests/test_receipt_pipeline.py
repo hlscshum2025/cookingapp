@@ -38,3 +38,15 @@ def test_sparse_first_pass_retries_enhanced_image(monkeypatch, tmp_path):
         "TASCHE",
     ]
     assert draft.raw_result["fallback_used"] is True
+
+
+def test_long_receipt_is_split_into_overlapping_vertical_tiles():
+    image=np.zeros((5000,960,3),dtype=np.uint8)
+
+    tiles=pipeline._vertical_tiles(image,2200)
+
+    assert len(tiles)==3
+    assert tiles[0][0]==0
+    assert tiles[-1][0]+tiles[-1][1].shape[0]==5000
+    assert all(tile.shape[0]<=2200 for _,tile in tiles)
+    assert tiles[1][0]<tiles[0][1].shape[0]
