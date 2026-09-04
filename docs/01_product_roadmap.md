@@ -1,6 +1,6 @@
 # 01｜CookingApp 全生命周期产品路线图
 
-更新日期：2026-08-27
+更新日期：2026-09-04
 用途：记录所有版本中新增、完成、延期、替代和放弃的功能。当前版本的具体执行只写入 [`02_v2_workboard.md`](./02_v2_workboard.md)。
 
 ## 1. 状态定义
@@ -22,8 +22,8 @@
 | V1 | 基础设施版 | 已完成 | 登录权限、来源导入、菜谱 CRUD、日志、分享边界、备份恢复、域名发布和 10 条真实闭环。 |
 | V2 | 初步应用与视觉识别版 | 进行中 | 多来源导入、采购/线上冰箱、成本、德国小票 OCR、小红书截图 OCR、冰箱/台面食材识别、YOLO baseline、厨房词典与可靠性增强。 |
 | V3 | 超市发现、完整语言、自动化与协作版 | 已计划 | 超市特价商品识别与菜谱决策、完整 `zh-CN` / `zh-TW` / `en` / `de`、图像/文档批处理、保质期提醒、多菜并行、聚餐协作与饮食记账。 |
-| V4 | 语音识别、多模态研究与模块化重构版 | 已计划 | 系统学习/接入 ASR，研究跨模态融合，并把已验证功能重构为按路由加载、接口隔离的业务模块。 |
-| V5+ | 协作与平台化 | 候选 | 多人共同编辑、原生 App/微信端、推荐与更完整生态，视真实使用决定。 |
+| V4 | 语音识别、多模态研究与本地优先模块化版 | 已计划 | 系统学习/接入 ASR、研究跨模态融合，并把已验证功能重构为 Domain Core + Repository/Provider + 可选能力模块，为 Local-first 和桌面版铺路。 |
+| V5+ | 桌面/原生封装、协作与平台化 | 候选 | Tauri Desktop、本地 SQLite、可选云同步、原生 App/微信端、多人协作、推荐与更完整生态，视真实使用决定。 |
 
 ## 3. V1｜基础设施版
 
@@ -190,7 +190,6 @@ V2 不另写一套互不相干的“手机版网站”。业务、账号和数�
 - 饮食记账：从已核对小票中只提取食品/外食/饮品等账目，排除押金、购物袋和非食品项目，可按月、商店、食材与菜谱汇总；
 - 聚餐小游戏只作为协作活动的可插拔模块，不进入成本核算核心，也不影响账目真实性；
 - 成本核算、聚餐协作和饮食记账共享 `purchase_records` / receipt evidence，但分别拥有自己的业务表、权限和界面；
-
 - 一次选择多道菜进入“本次做菜”；
 - 手机左右滑动切换菜谱；
 - 平板双栏或多栏同时显示；
@@ -209,7 +208,7 @@ V2 已有语言切换器、`profiles.locale` 和第一批 `zh-CN` / `zh-TW` / `e
 - 完成 `zh-CN / zh-TW / en / de × 手机 / 平板 / 桌面` 布局矩阵、伪本地化、长德语换行和截图回归；
 - 用简中、繁中、英文和德文分别跑登录、导入、编辑、采购、库存与公开菜谱主流程。
 
-## 6. V4｜语音识别与多模态 AI 研究版
+## 6. V4｜语音识别、多模态 AI 与本地优先模块化版
 
 ### 6.1 语音识别（ASR）学习与接入
 
@@ -295,24 +294,70 @@ YOLO / 视觉检测：出现盐罐 / 量勺
 - 优先 fine-tune 或 adapter，不以“从零训练大模型”为目标；
 - 所有训练数据明确版权、个人隐私与是否允许用于训练。
 
-### 6.5 模块化重构与可选能力接口
+### 6.5 Domain Core、Repository 与 Provider 重构
 
-模块化方案可行，但不采用“PWA 安装包里勾选若干组件”的桌面安装器思路。PWA 安装的是同一个轻量外壳；性能问题通过按路由下载代码、进入模块才加载数据、功能开关和稳定接口解决。这样用户仍只安装一次，未打开 OCR、财务或协作页面时，不必加载它们的重组件和业务数据。
+V4 的目标不只是“页面按需加载”，而是让 CookingApp 的业务核心不再绑定某个数据库、某个 AI 厂商或某一种外壳。V2 在触碰相关代码时先做接口准备；V4 再系统收口。
 
-V4 重构目标：
+目标依赖：
 
-- 根层只保留 `SupabaseClient + AuthSession + ConnectionStatus + Locale`，不在 `CookingProvider` 启动时读取所有业务表；
-- 将 `recipes / imports / pantry / shopping / finance / collaboration / receipt-ocr / inventory-vision` 拆成独立 domain module；
-- 每个模块公开稳定的 `types + repository + service + route UI`，页面不能跨模块直连表；
-- OCR、YOLO 或以后 ASR 只提交版本化 candidate/evidence；词典解析、人工确认和正式写库由主程序 service 编排；
-- 使用动态 import、路由级 code splitting 和 feature flag；只有进入对应页面才加载重组件、模型桥接和数据查询；
-- 用依赖方向和契约测试保证模块可替换，但不追求把所有模块发布成独立 npm 包或微服务；只有出现真实独立部署需求再拆；
-- PWA 仍提供完整导航；管理员或实验功能可以 feature flag 隐藏。以后若做 Tauri/Capacitor 原生外壳，也复用同一模块接口，而不是复制业务逻辑；
-- 设性能门槛：登录后首屏不等待 OCR/财务/协作数据；路由离开后取消无用请求；首屏 bundle、请求数和可交互时间进入回归指标。
+```text
+Web / PWA / Desktop UI
+          ↓
+      Domain Service
+          ↓
+Repository / Provider Ports
+   ┌──────┼───────────────┐
+   ↓      ↓               ↓
+Local   Cloud          Optional AI
+SQLite  Supabase       OCR/YOLO/ASR
+```
 
-选择性“安装模块”只有在未来出现离线模型包、桌面硬件驱动或企业部署时才有价值；那时可把大模型权重、相机/秤驱动做成可下载资源或原生插件，不把整个 CookingApp 拆成多个互不兼容的安装包。
+重构要求：
 
-## 7. V5+｜候选功能池、原生封装与平台化
+- 根层只保留应用会话、连接状态、locale 和全局错误边界；`SupabaseClient` 不再属于 Domain Core；
+- 将 `recipes / imports / dictionary / shopping / inventory / finance / collaboration / receipt-ocr / inventory-vision` 拆成清晰 domain module；
+- 每个业务模块公开稳定的 `types + repository port + service + route UI`，页面不得跨模块直接 `.from("table")`；
+- 为主要领域建立可替换 Repository：Web/Cloud 可使用 `Supabase*Repository`，Desktop/Offline 可使用 `SQLite*Repository`，浏览器实验可使用 IndexedDB adapter；
+- Supabase 继续承担云端 Auth、RLS、PostgreSQL 与 Storage，但从“业务唯一实现”降级为可选 Cloud Adapter；不开账号时基础功能仍可由 Local Adapter 工作；
+- 同步单独形成 `SyncAdapter`，定义 stable id、版本、更新时间、删除标记、冲突、重试和幂等，不把双向同步逻辑塞进每个业务页面；
+- OCR、YOLO、ASR、翻译服务都通过 Provider contract 返回 versioned candidate/evidence；词典归一化、人工确认、正式写库由主程序 service 决定；
+- 使用动态 import、路由级 code splitting 和 feature flag；用户未进入 OCR、财务、协作或游戏粮仓时，不加载其重组件和无关查询；
+- 用依赖方向与 contract test 保证模块可替换，但继续保持一个 monorepo；只有真实出现独立发布/独立维护需求时才拆成多个仓库。
+
+### 6.6 水杉式本地优先翻译与 Provider 链
+
+厨房词典不做“每次都请求机器翻译”的薄壳，而采用可学习的优先级链：
+
+```text
+Canonical Dictionary
+        ↓ miss
+Market / Store Alias
+        ↓ miss
+Translation Provider
+        ↓
+Translation Candidate
+        ↓
+人工/审核确认
+        ↓
+正式 Alias / Dictionary Proposal
+```
+
+- `TranslationProvider` 统一不同厂商或本地模型的输入输出，目标至少允许 DeepL/Google/Tencent/LLM/自定义 endpoint 中任一实现接入而不改业务页面；
+- 缓存 key 至少包含 `provider + source_language + target_language + normalized_text + domain_context`；相同 OCR/输入内容不得重复产生无意义云请求；
+- 可加入 debounce、positive cache、短期 negative cache、长度/字符过滤和批量请求；
+- 云翻译只生成候选，不自动覆盖 canonical 厨房实体；确认后的结果记录 provider、语言、来源、确认者和时间；
+- 第三方 GPL 等代码优先只借鉴架构思想并自行实现接口；正式复用代码、模型或数据前逐项检查许可证兼容性。
+
+### 6.7 Optional Module 与运行时边界
+
+- 基础 Core 必须在没有 OCR、YOLO、ASR、3D 和 Supabase 的情况下仍能运行菜谱、词典、采购与本地库存；
+- 研究环境与最终用户运行环境分开：训练可以使用 PyTorch/Paddle/CUDA，发行版优先使用 ONNX/轻量 runtime 或独立 sidecar；
+- 模型权重、Python runtime、视觉服务和 3D 资源作为可下载/可选资源，不进入基础安装包；
+- 统一定义 `Core / Cloud / OCR / Vision / Full` 等 Build Profile，但保持一套源码与版本，不维护多份分叉产品；
+- 游戏粮仓只是 inventory 的表现层；关闭或不安装视觉资源后，库存事实与普通列表界面仍可使用；
+- 设性能门槛：登录/启动首屏不等待 OCR、财务、协作和模型初始化；路由离开后取消无用请求，bundle、请求数和可交互时间进入回归指标。
+
+## 7. V5+｜候选功能池、桌面/原生封装与平台化
 
 - 周菜单与家庭库存闭环；
 - Open Food Facts 或其他可追溯商品数据；
@@ -320,6 +365,7 @@ V4 重构目标：
 - 基于历史评分、时间、库存和目标的推荐；
 - 多人共同编辑与协作任务；
 - 微信登录、微信小程序或原生 App；
+- Local-first Desktop 与可选云同步；
 - 离线优先与更完整的 PWA 能力。
 
 候选功能只有在进入具体版本并写入对应当前版本工作表后才算承诺。
@@ -368,6 +414,40 @@ V4 重构目标：
 - 公开菜谱、评论/反馈、图片上传等用户内容扩大前，另做个人信息、内容审核、投诉举报、数据留存与跨境数据流评估；不能把 ICP 备案误解为全部合规已经完成；
 - 官方依据：[非经营性互联网信息服务备案管理办法（2024 修订）](https://www.miit.gov.cn/gyhxxhb/jgsj/cyzcyfgs/bmgz/xxtxl/art/2024/art_84a0cfa0ebd049bbbe751dca9a008e56.html)、[备案办事指南与零收费](https://xzca.miit.gov.cn/bsfw/bszn/art/2017/art_4302aade098b4c4aa4966912d4308481.html)、[工信部 APP 备案通知](https://www.hunan.gov.cn/zqt/zcsd/202308/t20230809_29456035.html)。
 
+### 7.3 Windows / Desktop Local-first 与 Tauri 发布路线
+
+桌面版不是把当前 PWA 简单“套壳成 EXE”，而是利用 V4 的 Repository/Provider 接口增加一个真正可离线运行的本地发行形态。当前 PWA 仍优先；只有本地数据库、离线模型、文件系统或桌面集成需求足够明确后才进入实施。
+
+目标结构：
+
+```text
+React / CookingApp UI
+        ↓
+     Tauri Shell
+        ↓
+     Domain Core
+        ↓
+   SQLite Local DB
+        │
+        ├── optional Supabase Sync
+        ├── optional OCR sidecar
+        ├── optional Vision runtime
+        └── local media / backup
+```
+
+计划：
+
+- 首选评估 Tauri 作为 Windows Desktop 外壳，复用现有 React/Web UI，不另写一套 WinUI；Tauri 使用系统 WebView，Rust 只承担桌面能力、文件/数据库桥接和必要插件；
+- 基础 `CookingApp Core` 可无账号启动，SQLite 保存菜谱、词典、采购、库存和配置；图片/附件进入应用数据目录，模型与训练集不写入 SQLite；
+- Supabase 变成可选 `Cloud/Sync Pack`：用户需要跨设备同步、公开分享或云端协作时再登录；关闭同步不影响本地数据编辑；
+- OCR/Python 服务可在桌面版中作为 sidecar/外部 binary 独立运行；用户未安装 OCR 时主程序不携带完整 Python/Paddle/PyTorch 环境；
+- YOLO 研究使用 PyTorch/Ultralytics，发行版优先导出 ONNX 或其他轻量格式；模型权重单独版本化、下载、校验和卸载；
+- Build Profile 可以提供 `Core / Core+Cloud / Core+OCR / Core+Vision / Full`，但从同一 tag/源码构建，并在 About/诊断页显示安装能力与模型版本；
+- 本地数据必须支持导出/恢复；启用云同步前先定义首次上传、合并、冲突和删除规则，禁止“第一次登录就用云端整库覆盖本地”；
+- GitHub Release 后续可发布 Windows installer、checksums、CHANGELOG 和可选模块说明；代码签名、自动更新和 macOS/Linux 版在用户量和维护能力允许后再评估。
+
+Tauri 官方支持用 Rust + 系统 WebView 构建桌面应用，也支持把 Python CLI/API 等外部程序作为 sidecar 嵌入，因此与现有 React + Python vision 的结构兼容；最终实施时仍需做安装体积、WebView兼容、签名与升级验证。
+
 ## 8. 方案变更与删除记录
 
 | 日期 | 功能/方案 | 变化 | 结论 |
@@ -399,6 +479,9 @@ V4 重构目标：
 | 2026-08-25 | 保存菜谱后整页重载 | 替代 | 改为客户端状态更新、定向读取和无整页刷新的页面跳转；多草稿批量同步另列任务。 |
 | 2026-08-27 | PWA 打包成 `.exe` 作为当前主路线 | 不采用 | 当前直接使用 HTTPS PWA 安装，无需商店验证；Windows EXE 不能解决手机安装，原生封装等相机/后台/本地模型需求明确后再评估。 |
 | 2026-08-27 | PWA 安装时勾选业务模块 | 替代 | 改为一次安装轻量外壳，路由级按需加载、feature flag 与 domain interface；V4 再系统拆分 `CookingProvider` 和跨模块依赖。 |
+| 2026-09-04 | 水杉式翻译与能力扩展架构 | 加入模块化原则 | 采用 Local-first、Provider Adapter、Optional Module 思路：本地词典优先、云端只补未知项，OCR/YOLO/ASR 不与业务层硬绑定。 |
+| 2026-09-04 | Supabase 作为唯一业务数据实现 | 开始解耦 | V2 先定义 Repository 接口并渐进收口查询；V4 系统完成 Domain Core / Local Adapter / Cloud Adapter / Sync Adapter 边界。 |
+| 2026-09-04 | Windows 本地发行 | 加入 V5+ 路线 | 后续优先评估 Tauri + SQLite Local-first；Supabase 同步和 AI 模块可选，Python OCR/视觉允许 sidecar，不把全部重运行时塞进基础安装包。 |
 
 ## 9. 路线图维护规则
 
