@@ -92,7 +92,95 @@ V2 先用预训练模型建立真实 baseline；只有错误模式稳定后才�
 | V2-ARCH-02 | 拆分 `CookingProvider` | 前端性能技术债，不是数据库任务 | 根层只留会话/连接；菜谱、来源、粮仓、OCR/视觉按路由加载，减少首屏查询与无关重渲染。 |
 | V2-REL-05 | DEV → PROD 只追加工具 | 发布前待办 | dry-run、冲突列表、默认只追加、失败回滚和审计；绝不整库覆盖。 |
 
-## 7. 当前执行顺序
+## 7. 临时额外工作：开源、Local-first 与模块化重构准备
+
+这组任务来自对水杉输入法等模块化开源项目的结构借鉴。它们**不替代 V2 当前 OCR / 视觉 / 采购主线，也不要求一次性重构全部代码**；原则是以后每次触碰相关模块时顺手把边界变清晰，为公开协作、本地 EXE、SQLite、可选 OCR/YOLO/ASR 和后续 Tauri 做准备。
+
+### 7.1 Domain Core 与目录边界
+
+| ID | 临时任务 | 状态 | 完成定义 |
+|---|---|---|---|
+| V2-ARCH-03 | 定义 `Domain Core` | 待设计 | 菜谱、词典、采购、库存、成本的类型与业务规则不直接依赖 React、Next.js、Supabase 或 Python；可被 Web、PWA、Desktop 共用。 |
+| V2-ARCH-04 | 渐进整理 monorepo 目录 | 待设计，禁止大爆炸式搬家 | 目标边界参考 `apps / packages / services / features`；只在触碰文件时迁移并保留兼容导出，不一次性改完导致大量冲突。 |
+| V2-ARCH-05 | 模块依赖方向与契约测试 | 待设计 | `UI → service → repository/provider` 单向依赖；禁止页面绕过 service 直接跨模块查询别人的表；关键 interface 有 contract test。 |
+
+建议目标结构（只是边界目标，不要求本批次一次建齐）：
+
+```text
+apps/
+  web/                 # Next.js / vinext Web 与 PWA 外壳
+  desktop/             # 未来 Tauri 外壳
+packages/
+  core/                # 通用类型、错误、事件、业务约束
+  recipes/             # 菜谱领域
+  dictionary/          # canonical 厨房词典、alias、翻译候选
+  shopping/            # 采购车与清单
+  inventory/           # 粮仓/库存领域
+  finance/             # 成本、采购事实、记账
+  sync/                # 可选同步协议，不包含具体 UI
+  ui/                  # 可复用纯 UI 组件
+services/
+  vision/
+    ocr/                # PaddleOCR / OpenCV 等独立视觉进程
+    detection/          # YOLO / segmentation 等
+features/
+  granary/              # 游戏化粮仓表现层
+  collaboration/        # 聚餐协作
+  multimodal/           # 后续 ASR / 多模态实验
+```
+
+### 7.2 剥离 Supabase：Repository / Storage Adapter
+
+| ID | 临时任务 | 状态 | 完成定义 |
+|---|---|---|---|
+| V2-LOCAL-01 | 为主要业务定义 Repository interface | 待设计 | 例如 `RecipeRepository.save/get/list`、`InventoryRepository`、`DictionaryRepository`；业务 service 只认接口，不认 Supabase SDK。 |
+| V2-LOCAL-02 | 把现有 Supabase 查询收口为 `Supabase*Repository` | 渐进执行 | 页面和业务规则不再散落 `.from("...")`；RLS 与云端事务继续保留，但被视为 Cloud Adapter。 |
+| V2-LOCAL-03 | 设计本地 Repository | 待实验 | Web 可先用 IndexedDB/内存 adapter 验证接口；未来 Desktop 使用 SQLite，实现不开账号、不连接 Supabase 也能创建/编辑/搜索/备份菜谱与库存。 |
+| V2-LOCAL-04 | 本地 ↔ 云端 Sync Adapter 契约 | 待设计，不在 V2 实施完整双向同步 | 同步是可选能力；明确 id、版本、updated_at、删除标记、冲突与重试规则，避免以后把 Supabase 当业务核心而无法离线。 |
+| V2-LOCAL-05 | 本地备份/恢复格式 | 待设计 | SQLite/本地存储可导出稳定 JSON/ZIP 备份；图片与模型资源分开，不能让本地数据库因媒体或模型无限膨胀。 |
+
+目标依赖：
+
+```text
+页面 / Desktop UI
+      ↓
+Domain Service
+      ↓
+Repository Port
+   ┌──┴───────────┐
+   ↓              ↓
+Local Adapter   Supabase Adapter
+SQLite/IDB      PostgreSQL/Storage
+```
+
+### 7.3 水杉式 Provider：本地优先、云端补全、结果可追溯
+
+| ID | 临时任务 | 状态 | 完成定义 |
+|---|---|---|---|
+| V2-PROVIDER-01 | `TranslationProvider` 统一接口 | 待设计 | 腾讯/DeepL/Google/LLM/自定义 endpoint 或以后本地模型都返回统一 `TranslationCandidate`，业务层不绑定单一厂商。 |
+| V2-PROVIDER-02 | 厨房词典优先级链 | 待设计 | `canonical dictionary → market alias → translation provider → 用户确认 → alias/词典提案`；API 用于补未知词，不替代已有 canonical 数据。 |
+| V2-PROVIDER-03 | 翻译缓存与防抖 | 待设计 | 同一 source/target/provider/text 建缓存 key；短时间失败可做 negative cache；输入联想/批量 OCR 不应重复请求相同翻译。 |
+| V2-PROVIDER-04 | 翻译结果持久化门禁 | 待设计 | 云端译文默认是候选；只有满足格式规则并经人工/审核确认后才能成为正式 alias，必须保存 provider、语言、时间和证据来源。 |
+| V2-PROVIDER-05 | OCR / Vision / ASR Provider 契约统一原则 | 渐进执行 | 重模型只输出版本化 candidate/evidence；主程序不依赖某个具体 OCR/YOLO/ASR SDK，方便未来更换本地/云端实现。 |
+
+### 7.4 Optional Module 与发行边界
+
+| ID | 临时任务 | 状态 | 完成定义 |
+|---|---|---|---|
+| V2-MOD-01 | Core 与重功能依赖隔离 | 待设计 | 基础菜谱/词典/采购/库存不安装或不启动 OCR、YOLO、ASR、3D 也能完整运行；重依赖不能进入普通首屏 bundle。 |
+| V2-MOD-02 | Build Profile 草案 | 待设计 | 同一代码库定义 `Core / Cloud / OCR / Vision / Full` 能力组合，不维护多套互相漂移的源码 fork。 |
+| V2-MOD-03 | AI runtime 与模型资源外置 | 待设计 | 研究环境可使用 PyTorch/Paddle；最终用户优先使用 ONNX/轻量 runtime 或 sidecar，模型权重作为可选资源，不把训练环境塞进基础安装包。 |
+| V2-MOD-04 | 游戏粮仓表现层与库存事实分离 | 待设计 | 2D/3D/图标只是 `inventory` 的视图；关闭游戏界面后库存数据仍可用，不让 Three.js/模型资源成为核心依赖。 |
+
+### 7.5 开源身份与发行准备
+
+| ID | 临时任务 | 状态 | 完成定义 |
+|---|---|---|---|
+| V2-OPEN-01 | 明确开源许可证 | 用户手工处理 | 根目录加入标准 `LICENSE`，README 标明 SPDX 名称；不自己改写许可证条款。第三方代码/模型/数据继续逐项记录许可证。 |
+| V2-BRAND-01 | 产品身份系统 | 待设计 | 确定最终产品名/工程名关系、作者署名、Logo、App Icon、favicon、GitHub Release 图标与基础视觉规范；代码许可证与 Logo/品牌使用边界分开。 |
+| V2-RELEASE-01 | 发行元数据统一 | 待设计 | `package.json`、桌面包、Git tag、CHANGELOG、GitHub Release 使用统一版本；未来可自动产出 Core 与可选能力清单。 |
+
+## 8. 当前执行顺序
 
 1. 用正式账号提交一组小红书多截图和一组长/缺边小票，运行本地 `queue-worker`，完成上传→识别→返回核验页闭环。
 2. 用保留/删除混合的小票候选设计“确认并记账”事务，再决定哪些项目可选加入线上粮仓。
@@ -100,8 +188,9 @@ V2 先用预训练模型建立真实 baseline；只有错误模式稳定后才�
 4. 发布并实机验收 PWA 安装、离线边界和更新策略。
 5. 开始词典分类、用户提案和管理员审核设计。
 6. 按路由渐进拆分 `CookingProvider`，收尾公开互动、采购库存、成本与可靠性任务。
+7. **临时架构工作不单独抢占主线**：每次修改词典、库存、Supabase 或 AI 接口时，优先按第 7 节的 Repository / Provider / Optional Module 边界落地；等 V2 主闭环稳定后再集中整理目录。
 
-## 8. 当前发布门禁（只列未通过项）
+## 9. 当前发布门禁（只列未通过项）
 
 - [ ] 普通用户 + 管理员完成公开审核、点赞和跨账号权限验收；
 - [ ] 正式账号完成小红书截图和小票队列闭环；食材视觉仍保持“确认后才写正式数据”；
