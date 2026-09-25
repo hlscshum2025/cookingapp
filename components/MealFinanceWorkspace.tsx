@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { calculateRecipeCost, type IngredientCostInput } from "@/lib/costing";
 import { MealFinanceNav, type MealFinanceModule } from "@/components/MealFinanceNav";
-import { OcrImportPanel } from "@/components/OcrImportPanel";
 import { loadPublicRecipes, togglePublicRecipeLike } from "@/lib/public-recipes";
-import type { ReceiptOcrBatchDraftV1 } from "@/lib/vision-contracts";
+import { createLedgerEntry, deleteLedgerEntry, loadLedgerEntries, type LedgerEntry } from "@/lib/supabase";
 
 const costSeed:IngredientCostInput[]=[
   {id:"flour",name:"面粉",purchasePrice:1.49,currency:"EUR",packageAmount:1000,packageUnit:"g",allocation:{mode:"quantity",usedAmount:500,usedUnit:"g"}},
@@ -13,15 +12,13 @@ const costSeed:IngredientCostInput[]=[
   {id:"seasoning",name:"少量调料",purchasePrice:2.49,currency:"EUR",allocation:{mode:"uses",estimatedUses:50}},
 ];
 
-type LedgerItem={id:string;raw:string;name:string;category:string;price:number;checked:boolean;confidence:number};
-
 type RoleKey="helper"|"buyer";
 type Dish={id:string;name:string;chef:string;votes:number;likedByMe:boolean;likeBusy:boolean;claims:Record<RoleKey,boolean>};
 
 const pageMeta:Record<MealFinanceModule,{eyebrow:string;title:string;subtitle:string;badge:string;warn?:boolean}>={
   costs:{eyebrow:"FOOD FINANCE",title:"成本核算",subtitle:"这里负责“这道菜花多少钱”；聚餐分工和个人记账使用独立流程，但后续共享小票与采购数据。",badge:"可交互试算"},
   gatherings:{eyebrow:"GROUP MEAL",title:"聚餐协作",subtitle:"先决定吃什么，再分配主厨、帮厨、采购和付款；小票确认后进入 AA 分账。",badge:"GUI 草图 · 不写数据库",warn:true},
-  ledger:{eyebrow:"FOOD LEDGER",title:"饮食记账",subtitle:"上传小票后只提取食品支出；先核对商品与分类，再写入个人账本和采购历史。",badge:"OCR 可联调",warn:true},
+  ledger:{eyebrow:"FOOD LEDGER",title:"饮食记账",subtitle:"手动记录每笔餐饮支出与分摊人数；账目按账号保存。",badge:"可直接记账"},
 };
 
 function allocationLabel(item:IngredientCostInput){
@@ -38,9 +35,19 @@ export function MealFinanceWorkspace({initialActive}:{initialActive:MealFinanceM
   const [dishLoadState,setDishLoadState]=useState<"loading"|"ready"|"error">("loading");
   const [openDishId,setOpenDishId]=useState<string|null>(null);
   const [note,setNote]=useState("");
-  const [ledgerItems,setLedgerItems]=useState<LedgerItem[]>([]);
+  const [ledgerEntries,setLedgerEntries]=useState<LedgerEntry[]>([]);
+  const [ledgerLoading,setLedgerLoading]=useState(initialActive==="ledger");
+  const [ledgerSaving,setLedgerSaving]=useState(false);
+  const [ledgerError,setLedgerError]=useState("");
+  const [ledgerNotice,setLedgerNotice]=useState("");
+  const [description,setDescription]=useState("");
+  const [amount,setAmount]=useState("");
+  const [peopleCount,setPeopleCount]=useState("1");
+  const [happenedOn,setHappenedOn]=useState(()=>new Date().toISOString().slice(0,10));
+  const [ledgerNote,setLedgerNote]=useState("");
   const costResult=useMemo(()=>{try{return{value:calculateRecipeCost(costItems,servings),error:""}}catch(error){return{value:null,error:error instanceof Error?error.message:"核算失败"}}},[costItems,servings]);
-  const foodTotal=useMemo(()=>ledgerItems.filter(item=>item.checked).reduce((sum,item)=>sum+item.price,0),[ledgerItems]);
+  const monthPrefix=new Date().toISOString().slice(0,7);
+  const monthlyLedgerTotal=useMemo(()=>ledgerEntries.filter(entry=>entry.happened_on.startsWith(monthPrefix)).reduce((sum,entry)=>sum+Number(entry.amount),0),[ledgerEntries,monthPrefix]);
   const meta=pageMeta[active];
 
   useEffect(()=>{
@@ -61,7 +68,17 @@ export function MealFinanceWorkspace({initialActive}:{initialActive:MealFinanceM
     return()=>{activeRequest=false;};
   },[]);
 
+  useEffect(()=>{
+    if(active!=="ledger")return;
+    let mounted=true;
+    loadLedgerEntries().then(entries=>{if(mounted)setLedgerEntries(entries);})
+      .catch(error=>{if(mounted)setLedgerError(error instanceof Error?error.message:"账目加载失败，请重试。");})
+      .finally(()=>{if(mounted)setLedgerLoading(false);});
+    return()=>{mounted=false;};
+  },[active]);
+
   const selectModule=(module:MealFinanceModule)=>{
+    if(module==="ledger"&&active!=="ledger"){setLedgerLoading(true);setLedgerError("");}
     setActive(module);
     window.history.replaceState(window.history.state,"",`/${module}`);
   };
@@ -78,19 +95,26 @@ export function MealFinanceWorkspace({initialActive}:{initialActive:MealFinanceM
     }
   };
   const toggleClaim=(id:string,role:RoleKey)=>setDishes(current=>current.map(item=>item.id===id?{...item,claims:{...item.claims,[role]:!item.claims[role]}}:item));
-  const toggleLedgerItem=(id:string)=>setLedgerItems(current=>current.map(item=>item.id===id?{...item,checked:!item.checked}:item));
-  const removeLedgerItem=(id:string)=>setLedgerItems(current=>current.filter(item=>item.id!==id));
-  const receiveReceiptDraft=useCallback((draft:ReceiptOcrBatchDraftV1)=>{
-    setLedgerItems(draft.pages.flatMap((page,pageIndex)=>page.items.map((item,itemIndex)=>({
-      id:`${pageIndex}-${itemIndex}-${item.raw_text}`,
-      raw:item.raw_text,
-      name:item.product_name||item.raw_text,
-      category:"待分类",
-      price:item.line_total??0,
-      checked:true,
-      confidence:item.confidence,
-    }))));
-  },[]);
+  const saveLedgerEntry=async(event:React.FormEvent<HTMLFormElement>)=>{
+    event.preventDefault();setLedgerError("");setLedgerNotice("");
+    const numericAmount=Number(amount),numericPeople=Number(peopleCount);
+    if(!description.trim()){setLedgerError("请填写账目名称。");return;}
+    if(!Number.isFinite(numericAmount)||numericAmount<=0){setLedgerError("金额必须大于 0。");return;}
+    if(!Number.isInteger(numericPeople)||numericPeople<1){setLedgerError("人数至少为 1，且必须是整数。");return;}
+    setLedgerSaving(true);
+    try{
+      const entry=await createLedgerEntry({description,amount:Math.round(numericAmount*100)/100,peopleCount:numericPeople,happenedOn,note:ledgerNote});
+      setLedgerEntries(current=>[entry,...current]);setDescription("");setAmount("");setPeopleCount("1");setLedgerNote("");
+      setLedgerNotice("账目已保存。");
+    }catch(error){setLedgerError(error instanceof Error?error.message:"保存失败，请稍后重试。");}
+    finally{setLedgerSaving(false);}
+  };
+  const removeLedgerEntry=async(entry:LedgerEntry)=>{
+    if(!window.confirm(`确定删除“${entry.description} · ${entry.currency} ${Number(entry.amount).toFixed(2)}”吗？`))return;
+    setLedgerError("");
+    try{await deleteLedgerEntry(entry.id);setLedgerEntries(current=>current.filter(item=>item.id!==entry.id));setLedgerNotice("账目已删除。");}
+    catch(error){setLedgerError(error instanceof Error?error.message:"删除失败，请稍后重试。");}
+  };
 
   return <div className="page">
     <header className="page-head"><div><p className="eyebrow">{meta.eyebrow}</p><h1>{meta.title}</h1><p className="subtitle">{meta.subtitle}</p></div><span className={`badge ${meta.warn?"warn":""}`}>{meta.badge}</span></header>
@@ -98,7 +122,7 @@ export function MealFinanceWorkspace({initialActive}:{initialActive:MealFinanceM
     <div className="meal-finance-view" aria-live="polite">
       {active==="costs"&&<CostsView items={costItems} servings={servings} result={costResult} setServings={setServings} updatePrice={updatePrice}/>}
       {active==="gatherings"&&<GatheringsView dishes={dishes} dishLoadState={dishLoadState} openDishId={openDishId} note={note} setNote={setNote} setOpenDishId={setOpenDishId} toggleVote={toggleVote} toggleClaim={toggleClaim}/>}
-      {active==="ledger"&&<LedgerView items={ledgerItems} foodTotal={foodTotal} onReceiptDraft={receiveReceiptDraft} toggleItem={toggleLedgerItem} removeItem={removeLedgerItem}/>}
+      {active==="ledger"&&<LedgerView entries={ledgerEntries} loading={ledgerLoading} saving={ledgerSaving} error={ledgerError} notice={ledgerNotice} description={description} amount={amount} peopleCount={peopleCount} happenedOn={happenedOn} note={ledgerNote} monthlyTotal={monthlyLedgerTotal} onDescription={setDescription} onAmount={setAmount} onPeopleCount={setPeopleCount} onHappenedOn={setHappenedOn} onNote={setLedgerNote} onSubmit={saveLedgerEntry} onRemove={removeLedgerEntry}/>}
     </div>
   </div>;
 }
@@ -115,8 +139,12 @@ function GatheringsView({dishes,dishLoadState,openDishId,note,setNote,setOpenDis
     </div></>;
 }
 
-function LedgerView({items,foodTotal,onReceiptDraft,toggleItem,removeItem}:{items:LedgerItem[];foodTotal:number;onReceiptDraft:(draft:ReceiptOcrBatchDraftV1)=>void;toggleItem:(id:string)=>void;removeItem:(id:string)=>void}){
-  return <><div className="finance-layout"><section><OcrImportPanel initialKind="receipt" lockedKind embedded onReceiptDraft={onReceiptDraft}/></section>
-    <aside className="panel"><div className="section-head"><div><p className="eyebrow">MONTH</p><h2>2026 年 8 月</h2></div><span className="badge">EUR</span></div><div className="ledger-total"><span>饮食支出</span><b>€186.40</b><small>预算 €260 · 剩余 €73.60</small></div><div className="ledger-bar"><span style={{width:"72%"}}/></div><ul className="ledger-categories"><li><span>食材采购</span><b>€142.10</b></li><li><span>外食</span><b>€34.80</b></li><li><span>饮品</span><b>€9.50</b></li></ul></aside></div>
-    <section className="panel ledger-review"><div className="section-head"><div><p className="eyebrow">REVIEW DRAFT</p><h2>小票待核对清单</h2><p className="subtitle">食品、日用品和暂时无法分类的商品都会保留；不需要的行可以直接删除。</p></div><b className="ledger-food-total">已保留 €{foodTotal.toFixed(2)}</b></div>{items.length?<div className="table-wrap"><table><thead><tr><th>计入</th><th>小票原文</th><th>识别名称</th><th>分类</th><th>金额</th><th>删除</th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td><input type="checkbox" checked={item.checked} onChange={()=>toggleItem(item.id)} aria-label={`${item.name}计入账本`}/></td><td><code>{item.raw}</code><br/><small>置信度 {Math.round(item.confidence*100)}%</small></td><td><b>{item.name}</b></td><td><span className="tag">{item.category}</span></td><td>€{item.price.toFixed(2)}</td><td><button type="button" className="icon-btn" onClick={()=>removeItem(item.id)} aria-label={`删除 ${item.name}`}>×</button></td></tr>)}</tbody></table></div>:<div className="empty"><span>▤</span><h2>等待小票识别</h2><p>上传并识别后，商品会自动出现在这里。</p></div>}<div className="source-actions ledger-actions"><button className="btn btn-secondary" disabled={!items.length}>保存为待核对</button><button className="btn btn-primary" disabled>确认并记账（下一步）</button></div></section></>;
+function LedgerView(props:{entries:LedgerEntry[];loading:boolean;saving:boolean;error:string;notice:string;description:string;amount:string;peopleCount:string;happenedOn:string;note:string;monthlyTotal:number;onDescription:(v:string)=>void;onAmount:(v:string)=>void;onPeopleCount:(v:string)=>void;onHappenedOn:(v:string)=>void;onNote:(v:string)=>void;onSubmit:(event:React.FormEvent<HTMLFormElement>)=>void;onRemove:(entry:LedgerEntry)=>void}){
+  const currency=new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"});
+  return <div className="finance-layout"><section className="panel"><div className="section-head"><div><p className="eyebrow">MANUAL EXPENSE</p><h2>记录一笔支出</h2><p className="subtitle">填写总额和参与人数，自动计算人均金额。每条记录仅当前账号可见。</p></div><span className="badge">EUR</span></div>
+    <form className="form-grid" onSubmit={props.onSubmit}><div className="field full"><label htmlFor="ledger-description">账目名称</label><input id="ledger-description" required maxLength={160} value={props.description} onChange={e=>props.onDescription(e.target.value)} placeholder="例如：周末采购 / 外出聚餐"/></div><div className="field"><label htmlFor="ledger-amount">总金额（EUR）</label><input id="ledger-amount" type="number" min="0.01" step="0.01" required value={props.amount} onChange={e=>props.onAmount(e.target.value)} placeholder="0.00"/></div><div className="field"><label htmlFor="ledger-people">分摊人数</label><input id="ledger-people" type="number" min="1" max="1000" step="1" required value={props.peopleCount} onChange={e=>props.onPeopleCount(e.target.value)}/></div><div className="field"><label htmlFor="ledger-date">日期</label><input id="ledger-date" type="date" required value={props.happenedOn} onChange={e=>props.onHappenedOn(e.target.value)}/></div><div className="field full"><label htmlFor="ledger-note">备注（可选）</label><textarea id="ledger-note" maxLength={2000} value={props.note} onChange={e=>props.onNote(e.target.value)} placeholder="补充说明"/></div><div className="source-actions compact-actions full"><button className="btn btn-primary" type="submit" disabled={props.saving}>{props.saving?"正在保存…":"保存账目"}</button><small>输入金额和人数后会显示每人分摊金额。</small></div></form>
+    {props.error&&<div className="notice notice-error" role="alert">{props.error}</div>}{props.notice&&<div className="notice" role="status">{props.notice}</div>}
+  </section><aside className="panel"><div className="section-head"><div><p className="eyebrow">THIS MONTH</p><h2>本月汇总</h2></div><span className="badge">EUR</span></div><div className="ledger-total"><span>饮食支出</span><b>{currency.format(props.monthlyTotal)}</b><small>根据本月手动记录自动汇总</small></div><div className="notice">新账目默认只对当前账号可见。分摊金额仅用于参考，不会自动向其他成员收费。</div></aside>
+    <section className="panel ledger-review"><div className="section-head"><div><p className="eyebrow">RECENT ENTRIES</p><h2>账目记录</h2></div><span className="badge">{props.entries.length} 笔</span></div>{props.loading?<div className="notice">正在读取账目…</div>:props.entries.length?<div className="table-wrap"><table><thead><tr><th>日期与项目</th><th>总金额</th><th>人数</th><th>人均</th><th>备注</th><th>操作</th></tr></thead><tbody>{props.entries.map(entry=><tr key={entry.id}><td><b>{entry.description}</b><br/><small>{entry.happened_on}</small></td><td>{currency.format(Number(entry.amount))}</td><td>{entry.people_count}</td><td>{currency.format(Number(entry.amount)/entry.people_count)}</td><td>{entry.note||"—"}</td><td><button type="button" className="btn btn-secondary" onClick={()=>props.onRemove(entry)}>删除</button></td></tr>)}</tbody></table></div>:<div className="empty"><span>▤</span><h2>还没有账目</h2><p>先在上方录入今晚的支出。</p></div>}</section>
+  </div>;
 }

@@ -119,9 +119,7 @@ test("导入中心读取 source_videos 并串联播放与手工录入", async ()
   assert.match(imports,/UniversalSourceImport platform="xiaohongshu"/);
   assert.match(imports,/UniversalSourceImport platform="xiachufang"/);
   assert.match(imports,/PlatformFeedbackForm/);
-  assert.match(imports,/多图 OCR/);
-  assert.match(imports,/OcrImportPanel initialKind="xiaohongshu" lockedKind embedded/);
-  assert.match(imports,/带入现有菜谱录入流程/);
+  assert.doesNotMatch(imports,/OcrImportPanel|多图 OCR|\/imports\/ocr/);
 });
 
 test("四语言骨架会保存账号 locale 且不改写用户菜谱正文", async()=>{
@@ -165,10 +163,11 @@ test("菜谱风险字段和餐食财务无刷新切换 GUI 已接入", async()=>
   assert.match(workspace,/"buyer","采购"/);
   assert.match(workspace,/我来帮忙/);
   assert.match(workspace,/我有点忙/);
-  assert.match(workspace,/GUI 草图 · 不写数据库/);
-  assert.match(workspace,/小票待核对清单/);
-  assert.match(workspace,/OcrImportPanel initialKind="receipt" lockedKind embedded/);
-  assert.match(workspace,/removeLedgerItem/);
+  assert.match(workspace,/金额必须大于 0/);
+  assert.match(workspace,/分摊人数/);
+  assert.match(workspace,/createLedgerEntry/);
+  assert.match(workspace,/确定删除/);
+  assert.doesNotMatch(workspace,/OcrImportPanel|ReceiptOcrBatchDraftV1/);
 });
 
 test("设置页区分连接中、已连接和未连接并可手动重试", async () => {

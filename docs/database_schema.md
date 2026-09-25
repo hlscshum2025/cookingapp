@@ -58,6 +58,7 @@ erDiagram
 | public_recipe_likes | recipe_id, user_id | 公开菜谱账号级点赞 | DEV / PROD 已实施 |
 | pantry_items | owner_id, canonical_key, document, storage_location | 账号级“我的粮仓”（线上冰箱 / 线上储物柜） | 2026-08-22 DEV / PROD 已实施 |
 | feedback_submissions | owner_id, category, title, details, context, status, priority, reviewed_by | 用户反馈与管理员审核队列 | 2026-08-22 DEV / PROD 已实施 |
+| ledger_entries | owner_id, description, amount, people_count, happened_on, currency, note | 手工饮食支出与 AA 人均计算；所有者隔离 | 2026-09-25 DEV / PROD 已实施 |
 
 ## 4. 枚举与业务约束
 

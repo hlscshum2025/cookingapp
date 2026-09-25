@@ -89,6 +89,8 @@ test("活动 migration 与 PROD 历史一致，研究型 OCR migration 仍留在
     "20260822084649_pantry_storage_location.sql",
     "20260904053238_async_ocr_queue.sql",
     "20260904053245_ocr_queue_owner_index.sql",
+    "20260925124558_manual_ledger_entries.sql",
+    "20260925125412_harden_ledger_entries_grants.sql",
   ]);
   const pending=(await readdir(new URL("../supabase/pending_migrations/",import.meta.url))).sort();
   assert.deepEqual(pending,[
@@ -97,6 +99,15 @@ test("活动 migration 与 PROD 历史一致，研究型 OCR migration 仍留在
     "20260827062435_inventory_recognition_contract.sql",
     "README.md",
   ]);
+});
+
+test("手工账目表限制金额/人数并启用用户级 RLS",async()=>{
+  const sql=await readFile(new URL("../supabase/migrations/20260925124558_manual_ledger_entries.sql",import.meta.url),"utf8");
+  assert.match(sql,/amount numeric\(12,2\) not null check \(amount > 0\)/i);
+  assert.match(sql,/people_count integer not null default 1 check \(people_count between 1 and 1000\)/i);
+  assert.match(sql,/alter table public\.ledger_entries enable row level security/i);
+  assert.match(sql,/auth\.uid\(\)\) = owner_id/i);
+  assert.match(sql,/revoke all on table public\.ledger_entries from public, anon/i);
 });
 
 test("物品识别候选只有人工确认后才能关联粮仓",async()=>{

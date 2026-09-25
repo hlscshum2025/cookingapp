@@ -117,6 +117,54 @@ export async function persistIngredient(item:IngredientMapping){const s=getSupab
 export async function getPublicRecipe(id:string){const s=getSupabase();if(!s)return null;const {data,error}=await s.from("recipes").select("document").eq("id",id).eq("visibility","public").is("deleted_at",null).maybeSingle();if(error)throw error;return data?.document as Recipe|undefined;}
 export async function uploadLogPhoto(file:File){const s=getSupabase();if(!s)return null;const user=await getSessionUser(s);if(!user)return null;const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"-");const path=`${user.id}/logs/${crypto.randomUUID()}-${safe}`;const {error}=await s.storage.from("recipe-images").upload(path,file,{contentType:file.type,upsert:false});if(error)throw error;const {data}=await s.storage.from("recipe-images").createSignedUrl(path,3600);return {path,url:data?.signedUrl};}
 
+export type LedgerEntry={
+  id:string;
+  description:string;
+  amount:number;
+  people_count:number;
+  happened_on:string;
+  currency:string;
+  note:string;
+  created_at:string;
+};
+
+export async function loadLedgerEntries():Promise<LedgerEntry[]>{
+  const s=await connectSupabase();
+  if(!s)throw new Error("暂时无法连接 Supabase，请确认网络后重试。");
+  const user=await getSessionUser(s);
+  if(!user)throw new Error("请先登录后使用饮食记账。");
+  const {data,error}=await s.from("ledger_entries").select("id,description,amount,people_count,happened_on,currency,note,created_at").eq("owner_id",user.id).order("happened_on",{ascending:false}).order("created_at",{ascending:false});
+  if(error)throw error;
+  return (data||[]) as LedgerEntry[];
+}
+
+export async function createLedgerEntry(input:{description:string;amount:number;peopleCount:number;happenedOn:string;note:string}):Promise<LedgerEntry>{
+  const s=await connectSupabase();
+  if(!s)throw new Error("暂时无法连接 Supabase，请确认网络后重试。");
+  const user=await getSessionUser(s);
+  if(!user)throw new Error("请先登录后使用饮食记账。");
+  const {data,error}=await s.from("ledger_entries").insert({
+    owner_id:user.id,
+    description:input.description.trim(),
+    amount:input.amount,
+    people_count:input.peopleCount,
+    happened_on:input.happenedOn,
+    currency:"EUR",
+    note:input.note.trim(),
+  }).select("id,description,amount,people_count,happened_on,currency,note,created_at").single();
+  if(error)throw error;
+  return data as LedgerEntry;
+}
+
+export async function deleteLedgerEntry(id:string):Promise<void>{
+  const s=await connectSupabase();
+  if(!s)throw new Error("暂时无法连接 Supabase，请确认网络后重试。");
+  const user=await getSessionUser(s);
+  if(!user)throw new Error("请先登录后使用饮食记账。");
+  const {error}=await s.from("ledger_entries").delete().eq("id",id).eq("owner_id",user.id);
+  if(error)throw error;
+}
+
 const BACKUP_TABLES = [
   "recipes",
   "recipe_versions",

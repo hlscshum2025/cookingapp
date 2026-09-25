@@ -30,7 +30,7 @@
 
 ## 当前结构状态
 
-**2026-09-04：网页实际使用的异步 OCR 队列已完成 DEV → PROD 同步；小票采购事实与物品识别候选契约仍只在 DEV，因此仍保留两组有意的 `待同步 PROD` 差异。当前 OCR 页面只读写已同步的 `ocr_jobs/ocr_job_files` 和私有 `ocr-inputs`，不会调用尚未上线的采购/视觉候选表。**
+**2026-09-25：DEV 与 PROD 的异步 OCR 队列表结构仍一致，但本轮 Sites 正式版暂时移除小票/小红书 OCR 页面，不连接 OCR worker，也不在 Sites 部署视觉代码。目前没有独立的 OCR 图片上传给管理员审核通道，因此本轮不新增上传入口。小票采购事实与物品识别候选契约仍只在 DEV，继续保留为有意差异。本轮新增手工账目表 `ledger_entries` 已在 DEV/PROD 完成增量同步并启用 owner-only RLS。两个 Supabase 项目已恢复为 `ACTIVE_HEALTHY`。**
 
 已核对范围：
 
@@ -56,6 +56,7 @@
 | 2026-08-22 | 小票 OCR 数据基座：5 张 owner-only 表、复合 owner 外键、查询索引、私有 `receipt-images` bucket 与 Storage RLS | `pending_migrations/20260822092846_receipt_ocr_schema.sql` + `pending_migrations/20260822092944_receipt_ocr_fk_indexes.sql` | 已执行并验证 | 未执行 | **待同步 PROD** | 当前没有前端写入依赖；必须等小票核验界面进入发布批次后再同步 |
 | 2026-08-27 | OCR / 物品识别与词典、粮仓契约桥接：补齐 owner 级词典外键、采购到库存关联，新增 2 张视觉候选表与私有 `inventory-images` bucket | `pending_migrations/20260827062435_inventory_recognition_contract.sql` | 已执行并验证 | 未执行 | **待同步 PROD** | 只保存模型候选；必须经用户确认后才允许关联 `pantry_items`，当前 PWA/菜谱批量上传不依赖 |
 | 2026-09-04 | 异步 OCR 上传队列：`ocr_jobs`、`ocr_job_files`、私有 `ocr-inputs` bucket、受限状态转换和 owner 覆盖索引 | `20260904053238_async_ocr_queue.sql` + `20260904053245_ocr_queue_owner_index.sql` | 已执行并验证（DEV history：`20260904052623/20260904052747`） | 已执行并验证（PROD history 与文件名一致） | **已同步** | 登录用户只能管理自己的上传/任务；浏览器不能写 worker 结果；本地 worker 使用服务器端 secret，Sites 仅保存公开配置 |
+| 2026-09-25 | 手工饮食账目：`ledger_entries`，金额、人数、日期、币种、备注，owner-only RLS 与 owner/date 索引；收紧表权限仅 SELECT/INSERT/DELETE | `20260925124558_manual_ledger_entries.sql` + `20260925125412_harden_ledger_entries_grants.sql` | 已执行并验证（history：`20260925124549/20260925125411`） | 已执行并验证（history：`20260925124558/20260925125412`） | **已同步** | 前端手动记录依赖此表；authenticated 仅有 SELECT/INSERT/DELETE，RLS 限制仅本人可读、写入和删除；anon 无权限，不读取/覆盖既有业务表 |
 
 ## 2026-08-14 DEV → PROD 增量业务数据合并
 
